@@ -1,0 +1,7 @@
+aurora/models/
+aurora/logs/
+aurora/**/__pycache__/
+*.gguf
+*.log
+*.tmp
+*.cache
