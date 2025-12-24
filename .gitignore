@@ -5,3 +5,5 @@ aurora/**/__pycache__/
 *.log
 *.tmp
 *.cache
+aurora/dummy.aurora
+aurora/aurora_dataset.txt
