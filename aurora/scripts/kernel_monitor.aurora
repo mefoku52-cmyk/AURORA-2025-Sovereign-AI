@@ -1,0 +1,65 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: kernel_monitor
+# Popis: Live sledovanie jadra – metriky, kolektívne vedomie, neurónové spojenia
+# Log: ~/aurora/logs/kernel_monitor.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/kernel_monitor.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[kernel_monitor] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# -------------------------------
+# Sekcia 1: Kolektívne vedomie
+# -------------------------------
+collective_state() {
+  uname -a
+  uptime
+  echo "entropy=$(cat /proc/sys/kernel/random/entropy_avail)"
+}
+
+# -------------------------------
+# Sekcia 2: Neurónové spojenia
+# -------------------------------
+neural_links() {
+  ps -eo pid,ppid,stat,pcpu,pmem,cmd --sort=-pcpu | head -n 20
+}
+
+# -------------------------------
+# Sekcia 3: Ultronove vedomie
+# -------------------------------
+ultron_metrics() {
+  echo "transformer_state=active"
+  echo "metadata_flow=$(dmesg | tail -n 5)"
+}
+
+# -------------------------------
+# Sekcia 4: AI logika
+# -------------------------------
+ai_logic() {
+  local cpu_load=$(awk '{print $1}' /proc/loadavg)
+  local mem_used=$(free -m | awk 'NR==2{print $3}')
+  echo "ai_decision: cpu_load=$cpu_load mem_used=${mem_used}MB"
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START kernel_monitor"
+for cycle in $(seq 1 80); do
+  log "cycle=${cycle}"
+  collective_state | while read -r l; do log "collective $l"; done
+  neural_links | while read -r l; do log "neural $l"; done
+  ultron_metrics | while read -r l; do log "ultron $l"; done
+  ai_logic | while read -r l; do log "ai $l"; done
+  sleep 1
+done
+
+log "END kernel_monitor"
+
+for i in $(seq 1 200); do
+  log "detail_line=${i}"
+done

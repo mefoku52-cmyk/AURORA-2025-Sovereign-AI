@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+> "$LOG_FILE"
+echo "Pamäť vymazaná – nový cyklus začal"

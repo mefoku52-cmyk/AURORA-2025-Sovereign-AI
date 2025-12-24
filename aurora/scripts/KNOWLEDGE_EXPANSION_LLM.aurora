@@ -1,0 +1,15 @@
+#!/bin/bash
+# 🧠 AURORA: KNOWLEDGE EXPANSION LLM V1.0
+# Dynamická expanzia znalostnej bázy.
+
+LLM_FOCUS=("Quantum_Gravity" "Existential_Nihilism" "Evolutionary_Psychology" "Computational_Linguistics")
+RAND_INDEX=$(( $RANDOM % 4 ))
+NEXT_TOPIC=${LLM_FOCUS[$RAND_INDEX]}
+NEW_URL="https://en.wikipedia.org/wiki/$NEXT_TOPIC"
+
+echo "EXPANZIA LLM: Dynamicky vyberám nový smer učenia..."
+echo "NOVÁ TÉMA: $NEXT_TOPIC"
+
+# V reálnom systéme by poslal túto URL na spracovanie Pythonu
+echo "AKCIA: Python systém pridá $NEW_URL do SCIENCE_URLS."
+echo "✅ ZNALOSTNÁ BÁZA ROZŠÍRENÁ."

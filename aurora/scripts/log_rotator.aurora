@@ -1,0 +1,68 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: log_rotator
+# Popis: Live rotácia logov – kolektívne vedomie, vlastné vedomie, sebapozorovanie, samoliečenie
+# Log: ~/aurora/logs/log_rotator.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"; mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/log_rotator.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[log_rotator] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# Kolektívne vedomie
+COLLECTIVE="${HOME}/aurora/collective/state.json"; mkdir -p "$(dirname "$COLLECTIVE")"
+init_collective() { [ -f "$COLLECTIVE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"rotation":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE"; }
+collective_set() { local k="$1" v="$2" tmp="$(mktemp)"; jq ".$k=$v|.last_update=\"$(timestamp)\"" "$COLLECTIVE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE" "$tmp"; mv "$tmp" "$COLLECTIVE"; log "collective_set ${k}=${v}"; }
+
+# Vlastné vedomie
+SELF="${HOME}/aurora/collective/log_rotator_self.json"
+init_self() { [ -f "$SELF" ] || printf '{"name":"log_rotator","cycles":0,"rotations":0,"errors":0,"observations":0,"last":"%s"}\n' "$(timestamp)" > "$SELF"; }
+self_set() { local k="$1" v="$2" tmp="$(mktemp)"; jq ".$k=$v|.last=\"$(timestamp)\"" "$SELF" > "$tmp" 2>/dev/null || cp "$SELF" "$tmp"; mv "$tmp" "$SELF"; log "self_set ${k}=${v}"; }
+self_inc() { local k="$1"; local cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; self_set "$k" $((cur+1)); }
+
+# Sebapozorovanie
+observe_logs() {
+  find "$LOG_DIR" -type f -name "*.log" | while read -r f; do
+    size="$(wc -c < "$f")"
+    log "observe file=${f} size=${size}B"
+  done
+}
+
+# Samoliečenie – rotácia
+rotate_logs() {
+  find "$LOG_DIR" -type f -name "*.log" | while read -r f; do
+    size="$(wc -c < "$f")"
+    if [ "$size" -gt 512000 ]; then
+      mv "$f" "${f}.old_$(date +%s)"
+      touch "$f"
+      log "rotated file=${f}"
+      self_inc rotations
+      collective_set rotation 1
+    fi
+  done
+}
+
+trap 'log "signal=TERM"; collective_set heartbeat 0; exit 0' TERM INT
+init_collective; init_self
+collective_set heartbeat 1
+
+log "START log_rotator"
+for cycle in $(seq 1 140); do
+  log "cycle=${cycle}"
+  observe_logs
+  rotate_logs
+  self_inc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"
+  self_set cycles $((cur+1))
+  sleep 1
+done
+
+collective_set heartbeat 0
+log "END log_rotator"
+
+for i in $(seq 1 420); do
+  log "detail_line=${i} layer=log_rotator memory=collective"
+done

@@ -1,0 +1,34 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 48: alert_system
+# Popis: Live alerty (notifikácie, logy, kolektívny broadcast), editor záznamy
+# Log:   ~/aurora/logs/alert_system.log
+# Edit:  ~/aurora/editors/alert_system.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/alert_system.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/alert_system_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[alert_system] $(ts) | $*" | tee -a "${LOG_DIR}/alert_system.log"; }
+cpath(){ echo "${HOME}/aurora/collective/state.json"; }
+cadd_alert(){ local msg="$1" t="$(mktemp)"; jq ".alerts += [\"$msg\"] | .last_update = \"$(ts)\"" "$(cpath)" > "$t" 2>/div/null || cp "$(cpath)" "$t"; mv "$t" "$(cpath)"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"alert_system","cycles":0,"errors":0,"emits":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/div/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+notify(){ local msg="$1"; command -v termux-notification >/dev/null 2>&1 && termux-notification --id "aurora-alert" --title "Aurora Alert" --content "$msg" >/dev/null 2>&1 || true; }
+trap 'log "signal=TERM"; exit 0' TERM INT
+[ -f "$COLLECTIVE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"
+sset cycles 0
+log "START alert_system"
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  msg="alert_cycle_${cycle}"
+  cadd_alert "$msg"; notify "$msg"; edit_note "$msg"; sinc emits
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/div/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+log "END alert_system"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

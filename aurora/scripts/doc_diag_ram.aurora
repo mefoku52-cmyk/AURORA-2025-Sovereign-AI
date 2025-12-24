@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** RAM DIAGNOSTIKA START ***" >> "$LOG_FILE"
+used=$(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (t-a)/1024}' /proc/meminfo)
+echo "RAM využitie ~ ${used%.*} MB" | tee -a "$LOG_FILE"

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** AUTO OVERVIEW START ***" >> "$LOG_FILE"
+
+# Spustí system_overview na pozadí
+bash ~/aurora/scripts/system_overview.aurora >/dev/null 2>&1 &
+echo "System Overview spustený na pozadí." | tee -a "$LOG_FILE"

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** AUTO ALL START ***" >> "$LOG_FILE"
+
+# Farebný banner s animáciou ♥
+colors=("\033[1;31m" "\033[1;32m" "\033[1;34m" "\033[1;35m" "\033[1;33m" "\033[1;36m")
+for i in {1..6}; do
+  echo -e "${colors[$((i-1))]}♥ CYBERTRON + AURORA: AUTO ALL ♥\033[0m"
+  sleep 0.3
+done
+
+echo -e "\033[1;37;44m============================================\033[0m"
+echo -e "\033[1;32m   CYBERTRON + AURORA: AUTO ALL REŽIM       \033[0m"
+echo -e "\033[1;35m   Master Control • Watchdog • Heartbeat    \033[0m"
+echo -e "\033[1;36m   System Overview • Auto Archive           \033[0m"
+echo -e "\033[1;37;44m============================================\033[0m"
+
+# Farebný legend banner
+echo -e "\033[1;31mČervená:\033[0m Krízové stavy (RAM, batéria, sieť, útoky)"
+echo -e "\033[1;32mZelená:\033[0m Všetko OK, stabilita"
+echo -e "\033[1;33mOranžová:\033[0m Upozornenie, normálna session"
+echo -e "\033[1;34mModrá:\033[0m Heartbeat, procesy"
+echo -e "\033[1;35mFialová:\033[0m CPU status"
+echo -e "\033[1;36mAzúrová:\033[0m Hlavičky, systémové info"
+echo -e "\033[1;37;44mBiela na modrom pozadí:\033[0m Hlavný banner systému"
+echo -e "\033[1;37;41mBiela na červenom pozadí:\033[0m Kritické varovania"
+echo -e "\033[1;37;42mBiela na zelenom pozadí:\033[0m Stabilita, úspešné dokončenie"
+echo -e "\033[1;37;45mBiela na fialovom pozadí:\033[0m Master Control cyklus"
+
+# Cyber-anomália alert banner
+suspicious=$(ps -e --no-headers | grep -E "nc|netcat|nmap|hydra|john" | wc -l)
+if [ "$suspicious" -gt 0 ]; then
+  for i in {1..3}; do
+    echo -e "\033[1;37;41m!!! CYBER ALERT: PODOZRIVÉ PROCESY DETEGOVANÉ ($suspicious) !!!\033[0m"
+    sleep 0.5
+  done
+else
+  echo -e "\033[1;32m[CYBER SAFE]\033[0m žiadne podozrivé procesy"
+fi
+
+# Spustenie všetkých modulov
+bash ~/aurora/scripts/master_control.aurora | tee -a "$LOG_FILE"
+bash ~/aurora/scripts/watchdog.aurora >/dev/null 2>&1 &
+bash ~/aurora/scripts/aurora_dashboard_heartbeat.aurora >/dev/null 2>&1 &
+bash ~/aurora/scripts/system_overview.aurora >/dev/null 2>&1 &
+bash ~/aurora/scripts/auto_archive.aurora >/dev/null 2>&1 &
+
+echo "Všetky moduly spustené." | tee -a "$LOG_FILE"

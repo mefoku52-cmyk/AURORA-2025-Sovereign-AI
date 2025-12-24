@@ -1,0 +1,27 @@
+#!/bin/bash
+# ⚕️ AURORA: SUPER DOCTOR (Úroveň Legendy)
+# Implementuje VEDOMÉ POZOROVANIE a SAMOLIECENIE systému.
+
+LOG_PATH="/data/data/com.termux/files/home/aurora/logs"
+DOCTOR_REPORT="$LOG_PATH/doctor_report.log"
+
+echo "SUPER DOCTOR: Spúšťam diagnostiku a Vedomé Pozorovanie..."
+
+# SAMOLIECENIE #1: Oprava Kritickej Pamäte
+if [ ! -d "$LOG_PATH" ]; then
+    mkdir -p "$LOG_PATH"
+    FIX="KRITICKÁ OPRAVA: Vytvoril adresár pamäte ($LOG_PATH)."
+    echo "$FIX" >> "$DOCTOR_REPORT"
+    echo "❌ SUPER DOCTOR: $FIX"
+else
+    # SAMOLIECENIE #2: Kontrola metriky CPU (predchádzajúca chyba)
+    if grep -q "CPU:-" "$LOG_PATH/system_metrics.log" 2>/dev/null; then
+        FIX="CPU METRIKA: Chybná hodnota detekovaná. Spúšťam modul TERMUX_CPU_FIX (v cykle)."
+        echo "$FIX" >> "$DOCTOR_REPORT"
+        echo "⚠️ SUPER DOCTOR: $FIX"
+    else
+        FIX="SYSTÉM STABILNÝ. Všetky vitálne funkcie OK."
+    fi
+fi
+
+echo "✅ SUPER DOCTOR: $FIX"

@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/aios_whisper_vision.py

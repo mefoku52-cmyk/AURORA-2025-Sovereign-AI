@@ -1,0 +1,171 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: web_scraper
+# Popis: Live web scraper – robots.txt rešpekt, rate-limiting, snapshoty, hashovanie,
+#        deduplikácia, extrakcia textu/odkazov, kolektívne vedomie, vlastné vedomie,
+#        sebapozorovanie, samoliečenie.
+# Log:   ~/aurora/logs/web_scraper.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"; mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/web_scraper.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[web_scraper] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# --- Kolektívne vedomie ---
+COLLECTIVE_STATE="${HOME}/aurora/collective/state.json"; mkdir -p "$(dirname "$COLLECTIVE_STATE")"
+init_collective() { [ -f "$COLLECTIVE_STATE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"crawler":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE"; }
+collective_set() { local key="$1" val="$2" tmp="$(mktemp)"; jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"; mv "$tmp" "$COLLECTIVE_STATE"; log "collective_set ${key}=${val}"; }
+collective_alert() { local msg="$1" tmp="$(mktemp)"; jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"; mv "$tmp" "$COLLECTIVE_STATE"; log "collective_alert ${msg}"; }
+
+# --- Vlastné vedomie ---
+SELF_STATE="${HOME}/aurora/collective/web_scraper_self.json"
+init_self() { [ -f "$SELF_STATE" ] || printf '{"name":"web_scraper","cycles":0,"errors":0,"repairs":0,"observations":0,"snapshots":0,"blocked":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"; }
+self_set() { local key="$1" val="$2" tmp="$(mktemp)"; jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"; mv "$tmp" "$SELF_STATE"; log "self_set ${key}=${val}"; }
+self_inc() { local key="$1" cur; cur="$(jq -r ".${key}" "$SELF_STATE" 2>/dev/null || echo 0)"; self_set "$key" $((cur+1)); }
+
+# --- Konfigurácia URL ---
+SCRAPE_DIR="${HOME}/aurora/scraper"; mkdir -p "$SCRAPE_DIR"/{queue,snapshots,hashes}
+QUEUE_FILE="${SCRAPE_DIR}/queue/seed.txt"
+[ -f "$QUEUE_FILE" ] || cat > "$QUEUE_FILE" << 'SEED'
+https://example.org/
+https://httpbin.org/html
+https://httpbin.org/links/5/0
+SEED
+
+urls_to_scrape() { grep -v '^\s*$' "$QUEUE_FILE" | grep -v '^#'; }
+
+# --- Robots.txt rešpekt ---
+robots_allowed() {
+  local url="$1" host path robots rule
+  host="$(echo "$url" | awk -F/ '{print $3}')"
+  path="$(echo "$url" | cut -d/ -f4-)"
+  robots="$(curl -sS -m 5 "https://${host}/robots.txt" || curl -sS -m 5 "http://${host}/robots.txt" || true)"
+  rule="$(echo "$robots" | awk '/^Disallow:/ {print $2}' | sed 's/^\///' | head -n 1)"
+  if [ -z "$rule" ]; then echo 1; else echo "$path" | grep -q "^${rule}" && echo 0 || echo 1; fi
+}
+
+# --- Rate limiting & User-Agent ---
+UA="AuroraScraper/1.0 (+live)"
+RATE_DELAY=1
+
+fetch_page() {
+  local url="$1" tmp status
+  tmp="$(mktemp)"
+  status="$(curl -sS -m 8 -A "$UA" -w '%{http_code}' "$url" -o "$tmp" || echo 0)"
+  echo "$status;$tmp"
+}
+
+# --- Snapshot a hash ---
+snapshot_store() {
+  local url="$1" tmp="$2" when hash path
+  when="$(date +%s)"
+  hash="$(md5sum "$tmp" | awk '{print $1}')"
+  path="${SCRAPE_DIR}/snapshots/${hash}.html"
+  cp "$tmp" "$path"
+  echo "$hash;$path;$when"
+}
+hash_known() {
+  local h="$1"
+  [ -f "${SCRAPE_DIR}/hashes/${h}" ] && echo 1 || echo 0
+}
+hash_mark() {
+  local h="$1" url="$2" path="$3" when="$4"
+  printf "url=%s\npath=%s\nwhen=%s\n" "$url" "$path" "$when" > "${SCRAPE_DIR}/hashes/${h}"
+}
+
+# --- Extrakcia textu a odkazov ---
+extract_text() { sed 's/<[^>]*>//g' "$1" | tr -s ' '; }
+extract_links() { grep -Eo 'href="[^"]+"' "$1" | sed 's/href="//;s/"$//'; }
+
+# --- Dedup & selekcia ---
+dedupe_links() { awk '!x[$0]++'; }
+normalize_url() { sed 's|//#|/|g'; }
+
+# --- Sebapozorovanie ---
+observe_snapshot() {
+  local path="$1"
+  local size lines words
+  size="$(wc -c < "$path")"
+  lines="$(wc -l < "$path")"
+  words="$(wc -w < "$path")"
+  log "snapshot_meta path=${path} size=${size}B lines=${lines} words=${words}"
+}
+
+# --- Samoliečenie ---
+repair_html() {
+  local path="$1"
+  # základné opravy: odstránenie nulových bajtov
+  if tr -d '\000' < "$path" > "${path}.clean" 2>/dev/null; then
+    mv "${path}.clean" "$path"; log "repair_html clean_zero_bytes path=${path}"; echo 1
+  else
+    echo 0
+  fi
+}
+
+# --- Notifikácie ---
+notify() { local msg="$1"; command -v termux-notification >/dev/null 2>&1 && termux-notification --id "aurora-web-scraper" --title "Aurora Web Scraper" --content "$msg" >/dev/null 2>&1 || true; }
+
+# --- Spustenie ---
+trap 'log "signal=TERM"; collective_set heartbeat 0; exit 0' TERM INT
+init_collective; init_self
+collective_set heartbeat 1
+collective_set crawler 1
+self_set cycles 0
+
+log "START web_scraper"
+for cycle in $(seq 1 140); do
+  log "cycle=${cycle}"
+  urls_to_scrape | while read -r url; do
+    [ -z "$url" ] && continue
+    if [ "$(robots_allowed "$url")" -eq 0 ]; then
+      log "robots_block url=${url}"
+      self_inc blocked
+      collective_alert "robots_block ${url}"
+      continue
+    fi
+
+    read -r status tmp <<< "$(fetch_page "$url")"
+    log "fetch status=${status} url=${url}"
+    if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+      log "fetch_error status=${status} url=${url}"
+      self_inc errors
+      notify "Fetch failed: ${url}"
+      sleep "$RATE_DELAY"
+      continue
+    fi
+
+    read -r hash path when <<< "$(snapshot_store "$url" "$tmp")"
+    rm -f "$tmp"
+    if [ "$(hash_known "$hash")" -eq 1 ]; then
+      log "duplicate_snapshot hash=${hash} url=${url}"
+    else
+      hash_mark "$hash" "$url" "$path" "$when"
+      self_inc snapshots
+      observe_snapshot "$path"
+      repair_html "$path" >/dev/null || true
+
+      # extrakcia textu a odkazov
+      text="$(extract_text "$path" | head -n 20 | tr -d '\r')"
+      log "text_sample ${text}"
+      links="$(extract_links "$path" | dedupe_links | head -n 20 | normalize_url)"
+      while read -r l; do [ -n "$l" ] && log "link ${l}"; done <<< "$links"
+    fi
+
+    sleep "$RATE_DELAY"
+  done
+
+  self_inc observations
+  cur="$(jq -r '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_set cycles $((cur+1))
+  sleep 1
+done
+
+collective_set heartbeat 0
+log "END web_scraper"
+
+for i in $(seq 1 420); do
+  log "detail_line=${i} layer=web_scraper memory=collective"
+done

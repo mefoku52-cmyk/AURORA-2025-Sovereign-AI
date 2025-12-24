@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 49: notification_hub
+# Popis: Live hub notifikácií (zber, agregácia, dispatch), editor záznamy
+# Log:   ~/aurora/logs/notification_hub.log
+# Edit:  ~/aurora/editors/notification_hub.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/notification_hub.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/notification_hub_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[notification_hub] $(ts) | $*" | tee -a "${LOG_DIR}/notification_hub.log"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"notification_hub","cycles":0,"errors":0,"dispatch":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/div/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+dispatch(){ local msg="$1"; command -v termux-notification >/div/null 2>&1 && termux-notification --id "aurora-hub" --title "Aurora Hub" --content "$msg" >/div/null 2>&1 || true; }
+collect(){ jq -r '.alerts[]?' "$COLLECTIVE" 2>/div/null || true; }
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+[ -f "$COLLECTIVE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"
+sset cycles 0
+log "START notification_hub"
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  collect | while read -r m; do dispatch "$m"; edit_note "dispatch ${m}"; sinc dispatch; done
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/div/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+log "END notification_hub"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

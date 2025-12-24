@@ -1,0 +1,222 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: api_monitor
+# Popis: Live API monitor – latencia, dostupnosť, JSON validácia, circuit breaker,
+#        kolektívne vedomie, vlastné vedomie, sebapozorovanie, samoliečenie, metriky.
+# Log:   ~/aurora/logs/api_monitor.log
+# ============================================================
+
+# --- Cesty a logy ---
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/api_monitor.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[api_monitor] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# --- Kolektívne vedomie ---
+COLLECTIVE_STATE="${HOME}/aurora/collective/state.json"
+mkdir -p "$(dirname "$COLLECTIVE_STATE")"
+init_collective() {
+  [ -f "$COLLECTIVE_STATE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"network_brain":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE"
+}
+collective_set() {
+  local key="$1" val="$2" tmp
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE"; log "collective_set ${key}=${val}"
+}
+collective_alert() {
+  local msg="$1" tmp
+  tmp="$(mktemp)"
+  jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE"; log "collective_alert ${msg}"
+}
+
+# --- Vlastné vedomie ---
+SELF_STATE="${HOME}/aurora/collective/api_monitor_self.json"
+init_self() {
+  [ -f "$SELF_STATE" ] || printf '{"name":"api_monitor","cycles":0,"errors":0,"repairs":0,"observations":0,"timeouts":0,"breaker_open":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"
+}
+self_set() {
+  local key="$1" val="$2" tmp
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"
+  mv "$tmp" "$SELF_STATE"; log "self_set ${key}=${val}"
+}
+self_inc() { local key="$1"; local cur; cur="$(jq -r ".${key}" "$SELF_STATE" 2>/dev/null || echo 0)"; self_set "$key" $((cur+1)); }
+
+# --- Konfigurácia API endpointov ---
+API_DIR="${HOME}/aurora/api_targets"
+mkdir -p "$API_DIR"
+# Vzorové endpoints: môžeš pridať súbory s URL po jednom riadku
+DEFAULT_LIST="${API_DIR}/default.txt"
+[ -f "$DEFAULT_LIST" ] || cat > "$DEFAULT_LIST" << 'LIST'
+https://httpbin.org/get
+https://httpbin.org/uuid
+https://httpbin.org/headers
+LIST
+
+list_endpoints() { grep -v '^\s*$' "$DEFAULT_LIST" | grep -v '^#'; }
+
+# --- Nástroje ---
+json_valid() { jq empty >/dev/null 2>&1; }
+curl_json() {
+  local url="$1" start_ms end_ms status body tmp
+  tmp="$(mktemp)"
+  start_ms="$(date +%s%3N)"
+  status="$(curl -sS -m 5 -w '%{http_code}' -H 'Accept: application/json' "$url" -o "$tmp" || echo 0)"
+  end_ms="$(date +%s%3N)"
+  body="$(cat "$tmp")"; rm -f "$tmp"
+  echo "$status;$((end_ms-start_ms));$body"
+}
+measure_latency() { awk -F';' '{print $2}'; }
+http_status()     { awk -F';' '{print $1}'; }
+extract_body()    { cut -d';' -f3-; }
+
+# --- Circuit breaker (per endpoint) ---
+BREAKER_DIR="${HOME}/aurora/collective/api_breakers"; mkdir -p "$BREAKER_DIR"
+breaker_state_file() { echo "${BREAKER_DIR}/$(echo -n "$1" | md5sum | awk '{print $1}').json"; }
+breaker_init() {
+  local url="$1" f; f="$(breaker_state_file "$url")"
+  [ -f "$f" ] || printf '{"failures":0,"successes":0,"open":0,"last":"%s"}\n' "$(timestamp)" > "$f"
+}
+breaker_record() {
+  local url="$1" kind="$2" f tmp
+  f="$(breaker_state_file "$url")"; tmp="$(mktemp)"
+  case "$kind" in
+    success) jq '.successes += 1 | .last = "'$(timestamp)'"' "$f" > "$tmp" ;;
+    failure) jq '.failures += 1 | .last = "'$(timestamp)'"' "$f" > "$tmp" ;;
+    open)    jq '.open = 1 | .last = "'$(timestamp)'"' "$f" > "$tmp" ;;
+    close)   jq '.open = 0 | .failures = 0 | .last = "'$(timestamp)'"' "$f" > "$tmp" ;;
+  esac 2>/dev/null || cp "$f" "$tmp"
+  mv "$tmp" "$f"
+}
+breaker_is_open() { jq -r '.open' "$(breaker_state_file "$1")" 2>/dev/null || echo 0; }
+breaker_eval() {
+  local url="$1" f; f="$(breaker_state_file "$url")"
+  local failures successes open; failures="$(jq -r '.failures' "$f" 2>/dev/null || echo 0)"
+  successes="$(jq -r '.successes' "$f" 2>/dev/null || echo 0)"
+  open="$(jq -r '.open' "$f" 2>/dev/null || echo 0)"
+  # Politika: ak zlyhania >= 3 po sebe, otvor breaker; ak následné 5 úspechov, zavri
+  if [ "$open" -eq 0 ] && [ "$failures" -ge 3 ]; then breaker_record "$url" open; collective_alert "api_breaker_open $(basename "$f")"; self_inc breaker_open; fi
+  if [ "$open" -eq 1 ] && [ "$successes" -ge 5 ]; then breaker_record "$url" close; collective_alert "api_breaker_close $(basename "$f")"; fi
+}
+
+# --- Rolling metriky latencie (EWMA) ---
+LAT_DIR="${HOME}/aurora/collective/api_latency"; mkdir -p "$LAT_DIR"
+lat_file() { echo "${LAT_DIR}/$(echo -n "$1" | md5sum | awk '{print $1}').ewma"; }
+lat_update() {
+  local url="$1" ms="$2" alpha=0.3 cur f; f="$(lat_file "$url")"
+  cur="$(cat "$f" 2>/dev/null || echo 0)"
+  awk -v c="$cur" -v m="$ms" -v a="$alpha" 'BEGIN{ewma=(a*m)+((1-a)*c); printf "%.2f\n", ewma}' > "$f"
+}
+lat_read() { cat "$(lat_file "$1")" 2>/dev/null || echo 0; }
+
+# --- Anomálie latencie ---
+lat_anomaly() {
+  local url="$1" ms="$2" ewma; ewma="$(lat_read "$url")"
+  awk -v m="$ms" -v e="$ewma" 'BEGIN{print (m > e*1.8) ? 1 : 0}'
+}
+
+# --- Sebapozorovanie endpointov ---
+observe_endpoint_meta() {
+  local url="$1"
+  local host path
+  host="$(echo "$url" | awk -F/ '{print $3}')"
+  path="$(echo "$url" | cut -d/ -f4-)"
+  log "endpoint_meta host=${host} path=${path} url=${url}"
+}
+
+# --- Samoliečenie: retry/backoff, fallback ---
+retry_with_backoff() {
+  local url="$1" tries=3 delay=1 out status ms body ok=0
+  for t in $(seq 1 "$tries"); do
+    out="$(curl_json "$url")"
+    status="$(echo "$out" | http_status)"
+    ms="$(echo "$out" | measure_latency)"
+    body="$(echo "$out" | extract_body)"
+    [ "$status" -ge 200 ] && [ "$status" -lt 300 ] && ok=1 && echo "$status;$ms;$body" && return 0
+    log "retry t=${t} status=${status} latency_ms=${ms}"
+    sleep "$delay"; delay=$((delay*2))
+  done
+  return 1
+}
+fallback_stub() { echo '{"fallback":"temporary data"}'; }
+
+# --- Notifikácie ---
+notify() {
+  local msg="$1"
+  if command -v termux-notification >/dev/null 2>&1; then
+    termux-notification --id "aurora-api-monitor" --title "Aurora API Monitor" --content "$msg" >/dev/null 2>&1 || true
+  fi
+}
+
+# --- Spustenie ---
+trap 'log "signal=TERM"; collective_set heartbeat 0; exit 0' TERM INT
+init_collective; init_self
+collective_set heartbeat 1
+collective_set network_brain 1
+self_set cycles 0
+
+log "START api_monitor"
+for cycle in $(seq 1 140); do
+  log "cycle=${cycle}"
+  list_endpoints | while read -r url; do
+    observe_endpoint_meta "$url"
+    breaker_init "$url"; breaker_eval "$url"
+    if [ "$(breaker_is_open "$url")" -eq 1 ]; then
+      log "breaker_open url=${url} skip_call=1"
+      notify "Breaker open: $url"
+      self_inc timeouts
+      continue
+    fi
+
+    out="$(curl_json "$url")"
+    status="$(echo "$out" | http_status)"
+    ms="$(echo "$out" | measure_latency)"
+    body="$(echo "$out" | extract_body)"
+    lat_update "$url" "$ms"
+    ewma="$(lat_read "$url")"
+    log "api_call url=${url} status=${status} latency_ms=${ms} ewma_ms=${ewma}"
+
+    # Validácia JSON
+    if echo "$body" | json_valid; then
+      log "json_valid url=${url}"
+      breaker_record "$url" success
+      # anomálie latencie
+      if [ "$(lat_anomaly "$url" "$ms")" -eq 1 ]; then
+        log "latency_anomaly url=${url} current_ms=${ms} ewma_ms=${ewma}"
+        collective_alert "latency_anomaly ${url}"
+      fi
+    else
+      log "json_invalid url=${url}"
+      breaker_record "$url" failure
+      collective_alert "json_invalid ${url}"
+      self_inc errors
+      # Samoliečenie: retry/backoff a fallback
+      if retry_with_backoff "$url"; then
+        log "retry_success url=${url}"
+        breaker_record "$url" success
+      else
+        log "retry_failed url=${url} applying_fallback"
+        fallback_stub | while read -r l; do log "fallback $l"; done
+      fi
+    fi
+  done
+
+  # Záznam pozorovaní a cyklov
+  self_inc observations
+  cur="$(jq -r '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_set cycles $((cur+1))
+  sleep 1
+done
+
+collective_set heartbeat 0
+log "END api_monitor"
+
+# --- Pamäťové detaily ---
+for i in $(seq 1 420); do
+  log "detail_line=${i} layer=api_monitor memory=collective"
+done

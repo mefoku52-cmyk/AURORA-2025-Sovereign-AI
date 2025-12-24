@@ -1,0 +1,169 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: data_analyzer
+# Popis: Live analyzátor dát – CSV/JSON/LOG skenovanie, štatistika, kompresia,
+#        anomálie, kolektívne vedomie, vlastné vedomie, sebapozorovanie, samoliečenie.
+# Log:   ~/aurora/logs/data_analyzer.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"; mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/data_analyzer.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[data_analyzer] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# --- Kolektívne vedomie ---
+COLLECTIVE_STATE="${HOME}/aurora/collective/state.json"; mkdir -p "$(dirname "$COLLECTIVE_STATE")"
+init_collective() { [ -f "$COLLECTIVE_STATE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"analytics":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE"; }
+collective_set() { local key="$1" val="$2" tmp="$(mktemp)"; jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"; mv "$tmp" "$COLLECTIVE_STATE"; log "collective_set ${key}=${val}"; }
+collective_alert() { local msg="$1" tmp="$(mktemp)"; jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE" "$tmp"; mv "$tmp" "$COLLECTIVE_STATE"; log "collective_alert ${msg}"; }
+
+# --- Vlastné vedomie ---
+SELF_STATE="${HOME}/aurora/collective/data_analyzer_self.json"
+init_self() { [ -f "$SELF_STATE" ] || printf '{"name":"data_analyzer","cycles":0,"errors":0,"repairs":0,"observations":0,"compressed":0,"anomalies":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"; }
+self_set() { local key="$1" val="$2" tmp="$(mktemp)"; jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"; mv "$tmp" "$SELF_STATE"; log "self_set ${key}=${val}"; }
+self_inc() { local key="$1" cur; cur="$(jq -r ".${key}" "$SELF_STATE" 2>/dev/null || echo 0)"; self_set "$key" $((cur+1)); }
+
+# --- Skenovanie typov súborov ---
+SCAN_ROOT="${HOME}"
+discover_csv()  { find "$SCAN_ROOT" -type f -name "*.csv"  2>/dev/null; }
+discover_json() { find "$SCAN_ROOT" -type f -name "*.json" 2>/dev/null; }
+discover_log()  { find "$SCAN_ROOT" -type f -name "*.log"  2>/dev/null; }
+
+# --- CSV štatistika ---
+csv_stats() {
+  local file="$1"
+  local rows cols
+  rows="$(wc -l < "$file")"
+  cols="$(head -n1 "$file" | awk -F',' '{print NF}')"
+  echo "file=${file} rows=${rows} cols=${cols}"
+}
+csv_column_means() {
+  local file="$1"
+  awk -F',' '
+    NR==1{cols=NF; for(i=1;i<=cols;i++) sum[i]=0; next}
+    {for(i=1;i<=NF;i++){if($i ~ /^[0-9.]+$/){sum[i]+= $i; cnt[i]+=1}}}
+    END{for(i=1;i<=cols;i++){if(cnt[i]>0){printf "col[%d]_mean=%.4f ", i, sum[i]/cnt[i]}}}
+  ' "$file"
+}
+
+# --- JSON štatistika ---
+json_keys_count() { jq 'paths(scalars) | map(tostring) | length' "$1" 2>/dev/null || echo 0; }
+json_sample_keys() { jq -r 'paths(scalars) | map(tostring) | .[0:10][]' "$1" 2>/dev/null || true; }
+
+# --- LOG analýza ---
+log_severity_counts() {
+  local file="$1"
+  awk '
+    /ERROR/ {e++}
+    /WARN/  {w++}
+    /INFO/  {i++}
+    END{printf "errors=%d warns=%d infos=%d\n", e,w,i}
+  ' "$file"
+}
+log_tail_entropy() {
+  local file="$1"
+  tail -n 200 "$file" | tr -cd '[:alnum:] \n' | awk '{
+    for(i=1;i<=NF;i++){w[$i]++}
+  } END{
+    total=0; for(k in w){total+=w[k]}
+    H=0; for(k in w){p=w[k]/total; H+= -p*log(p)}
+    printf "tail_entropy=%.4f\n", H
+  }'
+}
+
+# --- Kompresia veľkých logov ---
+compress_if_large() {
+  local file="$1" size; size="$(wc -c < "$file")"
+  if [ "$size" -gt 1048576 ]; then
+    gzip -c "$file" > "${file}.gz" && echo "compressed" || echo "compress_fail"
+  else
+    echo "skip_compress"
+  fi
+}
+
+# --- Anomálie v CSV (rozptyl počtu stĺpcov) ---
+csv_anomaly_columns() {
+  local file="$1" first_cols; first_cols="$(head -n1 "$file" | awk -F',' '{print NF}')"
+  awk -F',' -v c="$first_cols" 'NR>1 && NF!=c {print NR":"NF}' "$file" 2>/dev/null
+}
+
+# --- Samoliečenie ---
+repair_csv_trim() {
+  local file="$1"
+  tmp="$(mktemp)"
+  awk -F',' '{
+    for(i=1;i<=NF;i++){gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)}
+    for(i=1;i<=NF;i++){printf "%s", $i; if(i<NF) printf ","}
+    printf "\n"
+  }' "$file" > "$tmp" && mv "$tmp" "$file" && echo "trimmed" || echo "trim_fail"
+}
+repair_log_strip_nulls() {
+  local file="$1"
+  tr -d '\000' < "$file" > "${file}.clean" 2>/dev/null && mv "${file}.clean" "$file" && echo "cleaned" || echo "clean_fail"
+}
+
+# --- Notifikácie ---
+notify() { local msg="$1"; command -v termux-notification >/dev/null 2>&1 && termux-notification --id "aurora-data-analyzer" --title "Aurora Data Analyzer" --content "$msg" >/dev/null 2>&1 || true; }
+
+# --- Spustenie ---
+trap 'log "signal=TERM"; collective_set heartbeat 0; exit 0' TERM INT
+init_collective; init_self
+collective_set heartbeat 1
+collective_set analytics 1
+self_set cycles 0
+
+log "START data_analyzer"
+for cycle in $(seq 1 140); do
+  log "cycle=${cycle}"
+
+  # CSV
+  discover_csv | while read -r f; do
+    meta="$(csv_stats "$f")"; means="$(csv_column_means "$f")"
+    log "csv_meta ${meta}"
+    [ -n "$means" ] && log "csv_means ${means}"
+    anom="$(csv_anomaly_columns "$f")"
+    if [ -n "$anom" ]; then
+      log "csv_anomaly file=${f} lines_cols=${anom}"
+      collective_alert "csv_anomaly ${f}"
+      res="$(repair_csv_trim "$f")"
+      [ "$res" = "trimmed" ] && self_inc repairs && notify "CSV repaired: ${f}"
+    fi
+    self_inc observations
+  done
+
+  # JSON
+  discover_json | while read -r j; do
+    keys="$(json_keys_count "$j")"
+    log "json_keys file=${j} count=${keys}"
+    json_sample_keys "$j" | head -n 10 | while read -r k; do log "json_key ${k}"; done
+    self_inc observations
+  done
+
+  # LOG
+  discover_log | while read -r lfile; do
+    sev="$(log_severity_counts "$lfile")"
+    ent="$(log_tail_entropy "$lfile")"
+    log "log_severity file=${lfile} ${sev}"
+    log "log_entropy file=${lfile} ${ent}"
+    res="$(compress_if_large "$lfile")"
+    [ "$res" = "compressed" ] && self_inc compressed && log "log_compressed file=${lfile}"
+    # Samoliečenie: strip nulls
+    fix="$(repair_log_strip_nulls "$lfile")"
+    [ "$fix" = "cleaned" ] && self_inc repairs && log "log_cleaned file=${lfile}"
+    self_inc observations
+  done
+
+  # cykly
+  cur="$(jq -r '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_set cycles $((cur+1))
+  sleep 1
+done
+
+collective_set heartbeat 0
+log "END data_analyzer"
+
+for i in $(seq 1 430); do
+  log "detail_line=${i} layer=data_analyzer memory=collective"
+done

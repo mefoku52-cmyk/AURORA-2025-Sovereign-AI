@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 38: benchmark_runner
+# Popis: Live benchmark (CPU/RAM/DISK), výsledky do editoru
+# Log:   ~/aurora/logs/benchmark_runner.log
+# Edit:  ~/aurora/editors/benchmark_runner.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/benchmark_runner.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/benchmark_runner_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[benchmark_runner] $(ts) | $*" | tee -a "${LOG_DIR}/benchmark_runner.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"bench":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"benchmark_runner","cycles":0,"errors":0,"runs":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+bench_cpu(){ python - <<'PY' 2>/dev/null | tail -n1
+import time,math
+t=time.time()
+s=0.0
+for i in range(1000000):
+    s+=math.sqrt(i%97+1)
+print("cpu_score=%.2f"%(1.0/(time.time()-t)))
+PY
+}
+bench_ram(){ awk 'BEGIN{s=0; for(i=0;i<2e7;i++){s+=i%13} print "ram_score=" s}' | tail -n1; }
+bench_disk(){ dd if=/dev/zero of="$HOME/aurora/bench.tmp" bs=1M count=16 oflag=direct 2>&1 | tail -n1; rm -f "$HOME/aurora/bench.tmp"; }
+
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START benchmark_runner"
+for cycle in $(seq 1 30); do
+  log "cycle=${cycle}"
+  c="$(bench_cpu)"; r="$(bench_ram)"; d="$(bench_disk)"
+  log "scores ${c} ${r} disk=${d}"
+  edit_note "scores ${c} ${r} disk=${d}"
+  sinc runs; sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 2
+done
+cset heartbeat 0
+log "END benchmark_runner"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

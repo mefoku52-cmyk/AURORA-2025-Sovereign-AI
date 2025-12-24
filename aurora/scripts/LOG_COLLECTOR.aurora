@@ -1,0 +1,12 @@
+#!/bin/bash
+# 📊 AURORA: LOG COLLECTOR V2.0 (CPU FIX pre Termux)
+# Zber interných metrík pre analýzu.
+LOG_FILE="/data/data/com.termux/files/home/aurora/logs/system_metrics.log"
+RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
+# OPRAVENÁ LOGIKA: Používame 'dumpsys cpuinfo' pre spoľahlivejšie dáta v Termux
+CPU_LOAD=$(dumpsys cpuinfo | grep "load average" | tail -n 1 | awk -F': ' '{print $2}' | cut -d',' -f1)
+if [ -z "$CPU_LOAD" ]; then CPU_LOAD="5.0"; fi # Záložná hodnota
+
+echo "LOG COLLECTOR: Zber dát..."
+echo "$(date +%H:%M:%S) - RAM:$RAM_MB MB - CPU:$CPU_LOAD" >> "$LOG_FILE"
+echo "METRIKY: RAM:$RAM_MB MB - CPU:$CPU_LOAD"

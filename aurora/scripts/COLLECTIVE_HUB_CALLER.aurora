@@ -1,0 +1,17 @@
+#!/bin/bash
+# 🌐 AURORA: COLLECTIVE HUB CALLER
+# Prepojenie ULTRA OS (LLM) s ULTRON MONOLITH (HUB/Sieť)
+
+echo "HUB CALLER: Spúšťam interný dotaz na ULTRON MONOLITH..."
+
+# Pripraví dotaz (napr. žiadosť o pamäť)
+QUERY="collective memory"
+PYTHON_SCRIPT="~/ai_ultron_MONOLITH.py"
+
+if [ -f "$PYTHON_SCRIPT" ]; then
+    # Použitie funkcie klienta z Python skriptu na odoslanie dotazu na localhost
+    RESULT=$(python3 -c "from ai_ultron_MONOLITH import client_send; print(client_send('$QUERY'))")
+    echo "HUB VÝSTUP: $RESULT"
+else
+    echo "HUB VÝSTUP: Skript MONOLITH nenájdený. Spustite ho ručne."
+fi

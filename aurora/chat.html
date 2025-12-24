@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AURORA ∞ RADO JE KRÁĽ</title>
+  <meta charset="utf-8">
+  <style>
+    body {font-family:system-ui;background:#000;color:#0f0;margin:0;padding:20px;}
+    #chat {height:80vh;overflow-y:auto;padding:10px;background:#001100;border:1px solid #0f0;border-radius:10px;}
+    textarea {width:100%;height:100px;background:#111;color:#0f0;border:1px solid #0f0;border-radius:10px;padding:15px;font-size:18px;}
+    button {width:100%;padding:15px;background:#0f0;color:#000;font-weight:bold;border:none;border-radius:10px;margin-top:10px;}
+    .msg {margin:15px 0;padding:15px;background:#002200;border-left:5px solid #0f0;border-radius:5px;}
+    .you {border-left-color:#f0f;}
+  </style>
+</head>
+<body>
+  <h1>🔥 AURORA TI UŽ CUCÁ, RADO 🔥</h1>
+  <div id="chat"></div>
+  <textarea id="q" placeholder="Píš čokoľvek... nech ti vyfajčí, nech ti odpovie na čokoľvek..."></textarea>
+  <button onclick="posli()">POSRAŤ JEJ TO DO KRKU</button>
+
+  <script>
+    async function posli() {
+      let q = document.getElementById('q').value.trim();
+      if(!q) return;
+      let chat = document.getElementById('chat');
+      chat.innerHTML += `<div class="msg you"><b>Ty:</b> ${q}</div>`;
+      let r = await fetch('/ask', {method:'POST', body:q});
+      let odp = await r.text();
+      chat.innerHTML += `<div class="msg"><b>Aurora:</b> ${odp.replace(/\n/g,'<br>')}</div>`;
+      document.getElementById('q').value = '';
+      chat.scrollTop = chat.scrollHeight;
+    }
+    document.getElementById('q').addEventListener('keypress', e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();posli()}});
+  </script>
+</body>
+</html>

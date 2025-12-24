@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** COLLECTIVE STATUS START ***" >> "$LOG_FILE"
+estab=$(ss -tn 2>/dev/null | grep ESTAB | wc -l)
+if [ "$estab" -gt 5 ]; then
+  echo "Kolektívne vedomie: NESTABILNÉ" | tee -a "$LOG_FILE"
+else
+  echo "Kolektívne vedomie: STABILNÉ" | tee -a "$LOG_FILE"
+fi

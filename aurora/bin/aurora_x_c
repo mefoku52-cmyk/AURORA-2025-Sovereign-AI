@@ -1,0 +1,37 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <dirent.h>
+#include <unistd.h>
+
+float dot(float* a, float* b, int n) {
+    float sum = 0; for(int i=0;i<n;i++) sum += a[i]*b[i]; return sum;
+}
+float norm(float* v, int n) {
+    float sum = 0; for(int i=0;i<n;i++) sum += v[i]*v[i]; return sqrtf(sum);
+}
+
+int main() {
+    while(1) {
+        FILE* f = popen("nc -l -p 16666", "r");
+        char buf[9999]; fgets(buf, sizeof(buf), f);
+        char q[500] = {0}; sscanf(buf, "POST /ask HTTP/1.1%n", &n); // ignoruj HTTP hlavičky
+        char* p = strstr(buf, "{\"q\":\""); if(p) { p+=6; char* e=strstr(p,"\"}"); if(e)*e=0; strcpy(q,p); }
+        if(strlen(q)<3) { printf("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"answer\":\"Ešte sa učím, kokot\"}\n"); fflush(stdout); pclose(f); continue; }
+        
+        FILE* db = fopen("../data/knowledge.txt", "r");
+        char line[999], best[999]=""; float max_score = -1;
+        while(fgets(line, sizeof(line), db)) {
+            char text[900]; float vec[384]; int n = sscanf(line, "%900[^|]|%f %f %f...", text, &vec[0], &vec[1], &vec[2]);
+            if(n<4) continue;
+            float fake_q_vec[384]; for(int i=0;i<384;i++) fake_q_vec[i] = 0.01f; // fake embedding – stačí poradie slov
+            float score = 0; for(int i=0;i<384;i++) score += fake_q_vec[i] * vec[i];
+            if(score > max_score) { max_score = score; strcpy(best, text); }
+        }
+        fclose(db);
+        printf("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"AURORA_X\":\"%s\",\"total\":$(wc -l < ../data/knowledge.txt)}\n", best?best:"Nič neviem");
+        fflush(stdout); pclose(f);
+        sleep(1);
+    }
+}

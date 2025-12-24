@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** SHOW LOG START ***"
+if [ -s "$LOG_FILE" ]; then
+  nl -ba "$LOG_FILE"
+else
+  echo "Log je prázdny"
+fi

@@ -1,0 +1,46 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: vfs_monitor
+# Popis: Live sledovanie súborového systému (VFS)
+# Log: ~/aurora/logs/vfs_monitor.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/vfs_monitor.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[vfs_monitor] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# Sleduj počet súborov v domovskom priečinku
+count_files() {
+  find "$HOME" -type f | wc -l | awk '{print "file_count="$1}'
+}
+
+# Sleduj veľkosť priečinkov
+dir_sizes() {
+  du -sh "$HOME"/* 2>/dev/null | head -n 20
+}
+
+# Sleduj otvorené súbory
+open_files() {
+  lsof -u "$(whoami)" | head -n 20
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START vfs_monitor"
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  log "$(count_files)"
+  dir_sizes | while read -r l; do log "dir_size $l"; done
+  open_files | while read -r l; do log "open_file $l"; done
+  sleep 1
+done
+
+log "END vfs_monitor"
+
+for i in $(seq 1 120); do
+  log "detail_line=${i}"
+done

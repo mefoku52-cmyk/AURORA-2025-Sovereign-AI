@@ -1,0 +1,32 @@
+#!/bin/bash
+# ⚠️ AURORA: SELF RESTART V1.0 (Nulová Strata)
+# Bezpečné uloženie stavu a reštart hlavného Python cyklu.
+
+PID_FILE="/data/data/com.termux/files/home/aurora/runtime/ultra_pid.txt"
+ULTRA_OS_PATH="/data/data/com.termux/files/home/.config/ultra-os"
+
+echo "SELF RESTART: Spúšťam bezpečnostnú procedúru..."
+
+# 1. Kontrola a volanie Archivačného Modulu (zachráni stav)
+if [ -x ./auto_archive.aurora ]; then
+    echo "ARCHIVÁCIA: Spúšťam Hot Backup dát..."
+    ./auto_archive.aurora
+fi
+
+# 2. Zastavenie bežiaceho Python procesu (PID by mala byť uložená)
+if [ -f "$PID_FILE" ]; then
+    ULTRA_PID=$(cat "$PID_FILE")
+    echo "ZASTAVENIE: Killujem starý proces (PID: $ULTRA_PID)..."
+    kill -9 "$ULTRA_PID" 2>/dev/null
+    rm "$PID_FILE"
+fi
+
+# 3. Rýchle opätovné spustenie (Nový čas spánku 120s sa aplikuje)
+echo "REŠTART: Spúšťam ULTRA-V500-MEGA-LIVE.py s novou konfiguráciou..."
+cd "$ULTRA_OS_PATH"
+# Spustenie na pozadí, aby neblokovalo tvoju aktuálnu sessiu
+python3 ULTRA-V500-MEGA-LIVE.py &
+echo $! > "$PID_FILE" # Uloženie nového PID
+
+echo "✅ REKONFIGURÁCIA HOTOVÁ. Nový proces beží s 2-minútovým cyklom a NULOVOU STRATOU VEDOMOSTÍ."
+

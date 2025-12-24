@@ -1,0 +1,44 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 35: package_manager
+# Popis: Live audit a správa balíčkov (update/list/verify), vlastný editor
+# Log:   ~/aurora/logs/package_manager.log
+# Edit:  ~/aurora/editors/package_manager.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/package_manager.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/package_manager_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[package_manager] $(ts) | $*" | tee -a "${LOG_DIR}/package_manager.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"packages":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"package_manager","cycles":0,"errors":0,"updates":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+pkg_update(){ command -v pkg >/dev/null 2>&1 && yes | pkg update >/dev/null 2>&1 && yes | pkg upgrade >/dev/null 2>&1 && log "pkg_updated" || log "pkg_missing"; edit_note "update_run"; sinc updates; }
+pkg_list(){ command -v pkg >/dev/null 2>&1 && pkg list-installed | head -n 40 || echo "no_pkg_tool"; }
+pkg_verify_core(){
+  for c in bash git python curl wget; do
+    if command -v "$c" >/dev/null 2>&1; then v="$($c --version 2>&1 | head -n1)"; log "core_ok ${c} => ${v}"; edit_note "core_ok ${c}"
+    else log "core_missing ${c}"; edit_note "core_missing ${c}"
+    fi
+  done
+}
+
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START package_manager"
+pkg_update
+for cycle in $(seq 1 90); do
+  log "cycle=${cycle}"
+  pkg_verify_core
+  pkg_list | while read -r l; do log "pkg ${l}"; done
+  edit_note "cycle_list_done ${cycle}"
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END package_manager"
+for i in $(seq 1 140); do edit_note "detail_line=${i}"; done

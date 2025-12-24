@@ -1,0 +1,15 @@
+#!/bin/bash
+# 🔐 AURORA: PROOT MANAGER V1.0 (Správa Oprávnení)
+# Rieši chyby "Permission denied" pri prístupe k systémovým logom (loadavg, netlink).
+
+echo "PROOT MANAGER: Analýza obmedzení oprávnení v Termux..."
+ERROR_LOG="/data/data/com.termux/files/home/aurora/logs/doctor_report.log"
+
+if grep -q "Permission denied" "$ERROR_LOG" 2>/dev/null; then
+    ACTION="⚠️ OPRÁVNENIA: Detekovaná chyba 'Permission denied'. Odporúčam prejsť do PROOT/ROOT prostredia pre presné dáta."
+    # V reálnom systéme by spustil proot-distro
+else
+    ACTION="✅ OPRÁVNENIA: Žiadne kritické chyby prístupu k dátam. Používam alternatívne merania."
+fi
+
+echo "AKCIA PROOT: $ACTION"

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** MASTER CONTROL START ***" >> "$LOG_FILE"
+bash ~/aurora/scripts/doc_diag_ram.aurora
+bash ~/aurora/scripts/doc_diag_net.aurora
+bash ~/aurora/scripts/collective_status.aurora
+bash ~/aurora/scripts/system_sleep.aurora
+echo "MASTER CYKLUS DOKONČENÝ" | tee -a "$LOG_FILE"

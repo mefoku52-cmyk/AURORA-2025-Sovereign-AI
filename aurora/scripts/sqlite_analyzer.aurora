@@ -1,0 +1,141 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: sqlite_analyzer
+# Popis: Live analýza SQLite databáz v systéme, kolektívne vedomie,
+#        vlastné vedomie modulu, sebapozorovanie (schema, indexy), samoliečenie (VACUUM/REINDEX)
+# Log: ~/aurora/logs/sqlite_analyzer.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/sqlite_analyzer.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[sqlite_analyzer] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# ----- Kolektívne vedomie -----
+COLLECTIVE_STATE_FILE="${HOME}/aurora/collective/state.json"
+mkdir -p "$(dirname "$COLLECTIVE_STATE_FILE")"
+
+init_collective() {
+  [ -f "$COLLECTIVE_STATE_FILE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE_FILE"
+}
+
+update_collective() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_update key=${key} val=${val}"
+}
+
+signal_alert() {
+  local msg="$1"
+  tmp="$(mktemp)"
+  jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_alert msg=${msg}"
+}
+
+# ----- Vlastné vedomie -----
+SELF_STATE="${HOME}/aurora/collective/sqlite_analyzer_self.json"
+init_self() {
+  [ -f "$SELF_STATE" ] || printf '{"name":"sqlite_analyzer","cycles":0,"errors":0,"repairs":0,"observations":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"
+}
+self_update() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"
+  mv "$tmp" "$SELF_STATE"
+  log "self_update key=${key} val=${val}"
+}
+
+# ----- Vyhľadanie SQLite súborov -----
+discover_sqlite() {
+  find "$HOME" -type f \( -name "*.sqlite" -o -name "*.db" \) -print 2>/dev/null
+}
+
+# ----- Sebapozorovanie schém -----
+inspect_db() {
+  local db="$1"
+  log "inspect_db begin file=${db}"
+  if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$db" ".schema" 2>/dev/null | while read -r l; do log "schema $l"; done
+    sqlite3 "$db" "PRAGMA integrity_check;" 2>/dev/null | while read -r l; do log "integrity $l"; done
+    sqlite3 "$db" "PRAGMA page_size;" 2>/dev/null | while read -r l; do log "page_size $l"; done
+    sqlite3 "$db" "PRAGMA freelist_count;" 2>/dev/null | while read -r l; do log "freelist $l"; done
+  else
+    log "sqlite3_missing"
+  fi
+  log "inspect_db end file=${db}"
+}
+
+# ----- AI logika rozhodovania o opravách -----
+ai_repair_needed() {
+  local db="$1"
+  if command -v sqlite3 >/dev/null 2>&1; then
+    local issues="$(sqlite3 "$db" "PRAGMA integrity_check;" 2>/dev/null | grep -iv 'ok' | wc -l)"
+    [ "${issues:-0}" -gt 0 ] && echo 1 || echo 0
+  else
+    echo 0
+  fi
+}
+
+repair_db() {
+  local db="$1" repaired=0
+  if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$db" "VACUUM;" 2>/dev/null && repaired=$((repaired+1))
+    sqlite3 "$db" "REINDEX;" 2>/dev/null && repaired=$((repaired+1))
+    log "repair_actions file=${db} count=${repaired}"
+  fi
+  echo "$repaired"
+}
+
+notify_msg() {
+  local msg="$1"
+  if command -v termux-notification >/dev/null 2>&1; then
+    termux-notification --id "aurora-sqlite" --title "Aurora SQLite Analyzer" --content "$msg" >/dev/null 2>&1 || true
+  fi
+}
+
+trap 'log "signal=TERM"; update_collective heartbeat 0; exit 0' TERM INT
+
+init_collective
+init_self
+
+log "START sqlite_analyzer"
+update_collective heartbeat 1
+self_update cycles 0
+
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  discover_sqlite | while read -r db; do
+    inspect_db "$db"
+    if [ "$(ai_repair_needed "$db")" -eq 1 ]; then
+      log "ai_trigger=repair file=${db}"
+      notify_msg "Repair needed: $db"
+      rc="$(repair_db "$db")"
+      signal_alert "sqlite_repair_${db}_${rc}"
+      cur_repairs="$(jq '.repairs' "$SELF_STATE" 2>/dev/null || echo 0)"
+      self_update repairs $((cur_repairs+rc))
+      update_collective repair 1
+    else
+      log "ai_trigger=none file=${db}"
+    fi
+    cur_obs="$(jq '.observations' "$SELF_STATE" 2>/dev/null || echo 0)"
+    self_update observations $((cur_obs+1))
+  done
+
+  cur_cyc="$(jq '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_update cycles $((cur_cyc+1))
+
+  sleep 1
+done
+
+update_collective heartbeat 0
+log "END sqlite_analyzer"
+
+for i in $(seq 1 360); do
+  log "detail_line=${i} meta=sqlite_analyzer memory=collective"
+done

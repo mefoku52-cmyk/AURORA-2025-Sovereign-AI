@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# ============================================================
+# AURORA: distrib_safe_connector
+# Popis: Bezpečné zapojenie celej distribúcie agentov k serveru,
+#        s centrálnym logom, rate-limitingom, heartbeatom a auto-restartom.
+# Log:   ~/aurora/logs/distrib_safe_connector.log
+# Edit:  ~/aurora/editors/distrib_safe_connector.edit
+# ============================================================
+
+# --- Cesty ---
+ROOT="${HOME}"
+SCRIPTS_DIR="${HOME}/aurora/scripts"
+LOG_DIR="${HOME}/aurora/logs"
+EDIT_DIR="${HOME}/aurora/editors"
+COLLECTIVE="${HOME}/aurora/collective/state.json"
+
+mkdir -p "$LOG_DIR" "$EDIT_DIR" "$(dirname "$COLLECTIVE")"
+LOG_FILE="${LOG_DIR}/distrib_safe_connector.log"
+EDIT_FILE="${EDIT_DIR}/distrib_safe_connector.edit"
+CENTRAL_LOG="${LOG_DIR}/CENTRAL_MONOLITH.log"
+
+ts() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[distrib_connector] $(ts) | $*" | tee -a "$LOG_FILE"; }
+note() { printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT_FILE"; }
+
+# --- Kolektívne vedomie ---
+ensure_collective() {
+  [ -f "$COLLECTIVE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"agents":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"
+}
+cset() {
+  local k="$1" v="$2" t; t="$(mktemp)"
+  jq ".$k = $v | .last_update = \"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"
+  mv "$t" "$COLLECTIVE"
+}
+
+# --- Parametre bezpečnosti (uprav podľa potreby) ---
+MAX_JOBS="${AURORA_MAX_JOBS:-4}"          # maximálny počet paralelných agentov
+RESTART_BACKOFF=3                          # sekundy medzi reštartami
+NICE_LEVEL=10                              # zníženie priority
+ULIMIT_FSIZE=524288                        # max veľkosť súboru (KB)
+ENV_SAFE="AURORA_TRUE_MODE=1 AURORA_CENTRAL_LOG=${CENTRAL_LOG}"
+
+# --- Základné kontroly a príprava ---
+touch "$CENTRAL_LOG"
+ensure_collective
+cset heartbeat 1
+log "START distrib_safe_connector (MAX_JOBS=${MAX_JOBS})"
+note "connector_started MAX_JOBS=${MAX_JOBS}"
+
+# --- Objavovanie agentov (nové, neopakujúce sa vzory) ---
+discover_agents() {
+  find "$ROOT" -type f \
+    \( -name "*agent*.sh" -o -name "*agent*.py" -o -name "start-*.sh" -o -name "auto_*.sh" -o -name "*core*.sh" -o -name "*monolith*.sh" -o -name "*ultron*.sh" -o -name "*aurora*.sh" \) \
+    -not -path "*/.git/*" -not -path "*/node_modules/*" -not -path "*/__pycache__/*" 2>/dev/null
+}
+
+# --- Validácia kandidátov ---
+is_executable() { [ -x "$1" ] || ( [ "${1##*.}" = "sh" ] || [ "${1##*.}" = "py" ] ); }
+is_safe() {
+  # zakážame známe rizikové vzory (môžeš rozšíriť)
+  grep -qiE "(rm -rf /|mkfs|:(){:|:&};:|dd if=/dev/zero of=/dev/block)" "$1" 2>/dev/null && return 1 || return 0
+}
+
+# --- Stav a heartbeat pre každý agent ---
+AGENTS_STATE_DIR="${LOG_DIR}/agents_state"
+mkdir -p "$AGENTS_STATE_DIR"
+agent_id() { echo -n "$1" | md5sum | awk '{print $1}'; }
+state_file() { echo "${AGENTS_STATE_DIR}/$(agent_id "$1").json"; }
+ensure_state() {
+  local f; f="$(state_file "$1")"
+  [ -f "$f" ] || printf '{"path":"%s","pid":0,"restarts":0,"alive":0,"last":"%s"}\n' "$1" "$(ts)" > "$f"
+}
+state_set() {
+  local path="$1" key="$2" val="$3" f t; f="$(state_file "$path")"; t="$(mktemp)"
+  jq ".${key} = ${val} | .last = \"$(ts)\"" "$f" > "$t" 2>/dev/null || cp "$f" "$t"
+  mv "$t" "$f"
+}
+
+# --- Spúšťací wrapper s bezpečným logovaním ---
+start_agent() {
+  local a="$1"
+  ensure_state "$a"
+  note "start_agent ${a}"
+  log "starting ${a}"
+
+  # presmerovanie logov agentov do centrálneho logu
+  # shell: bash + nice + ulimit; python: python -u
+  if [[ "$a" == *.py ]]; then
+    bash -c "ulimit -f ${ULIMIT_FSIZE}; nice -n ${NICE_LEVEL} env ${ENV_SAFE} python -u '$a' >> '${CENTRAL_LOG}' 2>&1" &
+  else
+    bash -c "ulimit -f ${ULIMIT_FSIZE}; nice -n ${NICE_LEVEL} env ${ENV_SAFE} bash '$a' >> '${CENTRAL_LOG}' 2>&1" &
+  fi
+
+  local pid=$!
+  state_set "$a" pid "$pid"
+  state_set "$a" alive 1
+  log "pid=${pid} bound_to=${CENTRAL_LOG}"
+}
+
+# --- Healthcheck a auto-reštart ---
+check_and_restart() {
+  local a="$1" f pid alive
+  f="$(state_file "$a")"
+  pid="$(jq -r '.pid' "$f" 2>/dev/null || echo 0)"
+  alive="$(jq -r '.alive' "$f" 2>/dev/null || echo 0)"
+
+  if [ "$alive" -eq 1 ] && [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+
+  log "agent_dead_or_missing ${a} pid=${pid} -> restart"
+  note "restart_agent ${a}"
+  local r; r="$(jq -r '.restarts' "$f" 2>/dev/null || echo 0)"
+  state_set "$a" alive 0
+  state_set "$a" restarts $((r+1))
+  sleep "$RESTART_BACKOFF"
+  start_agent "$a"
+}
+
+# --- Riadenie súbežnosti ---
+current_jobs() { jobs -rp | wc -l | awk '{print $1}'; }
+wait_capacity() {
+  while [ "$(current_jobs)" -ge "$MAX_JOBS" ]; do
+    sleep 0.5
+  done
+}
+
+# --- Preferenčné priradenie dvoch kľúčových procesov (server + jadro) ---
+preferential_boot() {
+  local candidates=()
+  # hľadaj ULTRON/MONOLITH/jadro/server skripty
+  while IFS= read -r f; do candidates+=("$f"); done < <(discover_agents | grep -iE "ultron|monolith|server|core|kernel|jadro|inner" || true)
+
+  if [ "${#candidates[@]}" -gt 0 ]; then
+    log "preferential_boot_count=${#candidates[@]}"
+    for a in "${candidates[@]}"; do
+      is_executable "$a" && is_safe "$a" || { log "skip_unsafe ${a}"; continue; }
+      wait_capacity
+      start_agent "$a"
+    done
+  else
+    log "preferential_boot_none_found"
+  fi
+}
+
+# --- Štart celej distribúcie (bezpečne) ---
+boot_distribution() {
+  local count=0
+  while IFS= read -r a; do
+    # preskoč už preferenčne spustené (rovnaký path)
+    [ -f "$(state_file "$a")" ] && continue
+
+    is_executable "$a" && is_safe "$a" || { log "skip_unsafe ${a}"; continue; }
+
+    wait_capacity
+    start_agent "$a"
+    count=$((count+1))
+  done < <(discover_agents)
+
+  cset agents "$count"
+  log "distribution_booted agents=${count}"
+  note "boot_distribution agents=${count}"
+}
+
+# --- Main loop: healthcheck všetkých agentov ---
+health_loop() {
+  for i in $(seq 1 300); do
+    for f in "${AGENTS_STATE_DIR}"/*.json; do
+      [ -f "$f" ] || continue
+      a="$(jq -r '.path' "$f" 2>/dev/null || echo "")"
+      [ -n "$a" ] && check_and_restart "$a"
+    done
+    sleep 1
+  done
+}
+
+# --- Spustenie ---
+preferential_boot
+boot_distribution
+health_loop
+
+cset heartbeat 0
+log "END distrib_safe_connector"
+note "connector_finished"

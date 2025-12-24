@@ -1,0 +1,20 @@
+#!/bin/bash
+# 🧠 AURORA: CODE DISTRIBUTION ANALYST V1.0
+# Analýza vlastnej distribučnej bázy a modularity systému.
+
+TOTAL_FILES=$(find /data/data/com.termux/files/home/.config/ultra-os /data/data/com.termux/files/home/aurora -type f | wc -l)
+PY_FILES=$(find /data/data/com.termux/files/home/.config/ultra-os -name "*.py" | wc -l)
+SH_FILES=$(find /data/data/com.termux/files/home/aurora -name "*.sh" -o -name "*.aurora" | wc -l)
+
+echo "CODE ANALYST: Spúšťam seba-reflexiu kódu..."
+echo "TOTAL FILES: $TOTAL_FILES (VŠETKY)"
+echo "PYTHON MODULES: $PY_FILES"
+echo "AURORA SCRIPTS: $SH_FILES"
+
+if [ $TOTAL_FILES -lt 100 ]; then
+    EVALUATION="NEDOSTATOČNÁ MODULARITA: Rozširujem KNOWLEDGE_BASE o súbory."
+else
+    EVALUATION="DOSTATOČNÁ MODULARITA: $TOTAL_FILES súborov, stabilný systém."
+fi
+
+echo "EVALUÁCIA: $EVALUATION"

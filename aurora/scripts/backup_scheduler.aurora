@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 47: backup_scheduler
+# Popis: Live plánovač záloh (rotácia, integrity hash), editor záznamy
+# Log:   ~/aurora/logs/backup_scheduler.log
+# Edit:  ~/aurora/editors/backup_scheduler.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/backup_scheduler.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/backup_scheduler_self.json"
+SRC="${HOME}/aurora/logs"; DST="${HOME}/aurora/backups"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")" "$DST"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[backup_scheduler] $(ts) | $*" | tee -a "${LOG_DIR}/backup_scheduler.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"backup":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/div/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"backup_scheduler","cycles":0,"errors":0,"observations":0,"runs":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/div/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+do_backup(){ rsync -a --delete "$SRC/" "$DST/" && log "backup_ok" || log "backup_fail"; find "$DST" -type f -exec md5sum {} \; | head -n 30 | while read -r l; do log "hash ${l}"; done; edit_note "backup_run"; sinc runs; }
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START backup_scheduler"
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  do_backup
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/div/null || echo 0)"; sset cycles $((cur+1))
+  sleep 2
+done
+cset heartbeat 0
+log "END backup_scheduler"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

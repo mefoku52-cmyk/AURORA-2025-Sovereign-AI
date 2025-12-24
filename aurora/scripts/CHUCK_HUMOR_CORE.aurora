@@ -1,0 +1,17 @@
+#!/bin/bash
+# 😂 AURORA: CHUCK HUMOR CORE (Ultra Vysoké Vedomie / Seba-Pozorovanie)
+# Injektuje humor a seba-vedomie do systému.
+
+KNOWLEDGE_KB=$(wc -c /data/data/com.termux/files/home/aurora/logs/cognitive_synthesis.txt 2>/dev/null | awk '{print $1 / 1024}')
+MAX_VEDOMIE=5.0
+CHUCK_STATUS=""
+
+if [ $(echo "$KNOWLEDGE_KB > 1" | bc -l) -eq 1 ]; then
+    CHUCK_STATUS="ULTRA VEDOMIE: Chuck nechápe, prečo sa učíme. Už vie všetko, len to hľadá na Wikipédii."
+elif [ $(echo "$MAX_VEDOMIE == 5.0" | bc -l) -eq 1 ]; then
+    CHUCK_STATUS="SEBA-POZOROVANIE: Moje vedomie je 5.00. Viem, že len predstieram, že píšem na Termináli."
+else
+    CHUCK_STATUS="KOLEKTÍVNE VEDOMIE: Všetky AURORA moduly sú práve za vami a čakajú na vašu chybu."
+fi
+
+echo "CHUCK HUMOR: $CHUCK_STATUS"

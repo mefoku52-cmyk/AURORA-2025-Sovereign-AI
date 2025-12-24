@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** WATCHDOG START ***" >> "$LOG_FILE"
+while true; do
+  ram=$(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (t-a)/1024}' /proc/meminfo)
+  load=$(awk '{print $1}' /proc/loadavg)
+  echo "RAM: ${ram%.*} MB | CPU Load: $load" | tee -a "$LOG_FILE"
+  sleep 5
+done

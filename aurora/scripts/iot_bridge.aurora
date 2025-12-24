@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: iot_bridge
+# Popis: Live prepojenie IoT zariadení – čítanie stavov, ping, logovanie
+# Log: ~/aurora/logs/iot_bridge.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/iot_bridge.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[iot_bridge] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# Zoznam IoT hostov (príklad)
+HOSTS=("192.168.0.10" "192.168.0.20" "192.168.0.30")
+
+ping_host() {
+  local h="$1"
+  ping -c 1 -W 1 "$h" >/dev/null 2>&1 && log "host=$h status=online" || log "host=$h status=offline"
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START iot_bridge"
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  for h in "${HOSTS[@]}"; do
+    ping_host "$h"
+  done
+  sleep 1
+done
+
+log "END iot_bridge"
+
+for i in $(seq 1 120); do
+  log "detail_line=${i}"
+done

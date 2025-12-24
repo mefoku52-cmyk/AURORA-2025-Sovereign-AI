@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** AUTO DEFENSE START ***" >> "$LOG_FILE"
+
+while true; do
+  suspicious=$(ps -e --no-headers | grep -E "nc|netcat|nmap|hydra|john")
+  if [ -n "$suspicious" ]; then
+    echo -e "\033[1;37;41m!!! CYBER ALERT: PODOZRIVÉ PROCESY DETEGOVANÉ !!!\033[0m" | tee -a "$LOG_FILE"
+
+    # Kill podozrivých procesov
+    echo "$suspicious" | awk '{print $1}' | xargs -r kill -9
+    echo "[AUTO DEFENSE] Podozrivé procesy ukončené." | tee -a "$LOG_FILE"
+
+    # Blokovanie portov (ak iptables dostupné)
+    if command -v iptables >/dev/null 2>&1; then
+      sudo iptables -A INPUT -p tcp --dport 4444 -j DROP
+      sudo iptables -A INPUT -p tcp --dport 5555 -j DROP
+      echo "[AUTO DEFENSE] Porty 4444 a 5555 blokované." | tee -a "$LOG_FILE"
+    fi
+  else
+    echo -e "\033[1;32m[CYBER SAFE]\033[0m žiadne podozrivé procesy" | tee -a "$LOG_FILE"
+  fi
+  sleep 15
+done

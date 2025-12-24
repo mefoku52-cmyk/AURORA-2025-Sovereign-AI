@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: quantum_init
+# Popis: Inicializácia kvantového režimu – live kontrola systémových parametrov
+# Log: ~/aurora/logs/quantum_init.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/quantum_init.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[quantum_init] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+entropy() {
+  cat /proc/sys/kernel/random/entropy_avail
+}
+
+cpu_flags() {
+  grep -m1 '^flags' /proc/cpuinfo
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START quantum_init"
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  log "entropy=$(entropy)"
+  log "cpu_flags=$(cpu_flags)"
+  sleep 1
+done
+
+log "END quantum_init"
+
+for i in $(seq 1 120); do
+  log "detail_line=${i}"
+done

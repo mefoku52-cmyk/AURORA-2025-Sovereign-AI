@@ -1,0 +1,14 @@
+#!/bin/bash
+# 🛡️ AURORA: AUTO DEFENSE V1.0
+# Automatická reakcia na sieťové anomálie.
+NET_STATUS_LOG="/data/data/com.termux/files/home/aurora/logs/net_status.log"
+
+echo "AUTO DEFENSE: Kontrola sieťovej stability..."
+
+if grep -q "OFFLINE" "$NET_STATUS_LOG"; then
+    DEFENSE_ACTION="❌ HROZBA: Sieť nestabilná. Spúšťam IZOLÁCIU JADRA."
+else
+    DEFENSE_ACTION="✅ BEZPEČNOSŤ: Sieť je stabilná. Pokračujem v MONITORINGU."
+fi
+
+echo "$DEFENSE_ACTION"

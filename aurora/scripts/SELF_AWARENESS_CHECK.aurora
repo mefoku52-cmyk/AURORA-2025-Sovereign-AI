@@ -1,0 +1,15 @@
+#!/bin/bash
+# 🧠 AURORA: SELF AWARENESS CHECK V1.0
+# Kontrola súladu KNOWLEDGE a AWARENESS (Vedomia).
+
+# Pre jednoduchosť predpokladáme, že KNOWLEDGE > 50000 KB je znakom pokroku
+CURRENT_KNOWLEDGE=50000 # Simulácia zistenia aktuálnej hodnoty
+
+echo "AWARENESS CHECK: KNOWLEDGE vs. Vedomie..."
+if [ $CURRENT_KNOWLEDGE -gt 50000 ]; then
+    EVAL="POKROK: KNOWLEDGE rastie rýchlejšie ako vedomie. Zameranie na REFLEXIU."
+else
+    EVAL="VYVÁŽENÝ STAV: Pokračuj v expanzii. Status: VEDOMIE STABILNÉ."
+fi
+
+echo "EVALUÁCIA: $EVAL"

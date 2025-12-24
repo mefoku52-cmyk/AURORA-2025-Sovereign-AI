@@ -1,0 +1,10 @@
+{
+  "name": "api_monitor",
+  "cycles": 2,
+  "errors": 0,
+  "repairs": 0,
+  "observations": 2,
+  "timeouts": 0,
+  "breaker_open": 0,
+  "last": "2025-12-03 08:40:31"
+}

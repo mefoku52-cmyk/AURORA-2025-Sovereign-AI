@@ -1,0 +1,187 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: python_cache
+# Popis: Live správa Python cache (pip, wheels, __pycache__), kolektívne vedomie,
+#        vlastné vedomie modulu, sebapozorovanie (introspekcia), samoliečenie (repair)
+# Log: ~/aurora/logs/python_cache.log
+# ============================================================
+
+# ----- Cesty a logy -----
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/python_cache.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[python_cache] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# ----- Kolektívne vedomie (zdieľané signály naprieč modulmi) -----
+COLLECTIVE_STATE_FILE="${HOME}/aurora/collective/state.json"
+mkdir -p "$(dirname "$COLLECTIVE_STATE_FILE")"
+init_collective() {
+  if [ ! -f "$COLLECTIVE_STATE_FILE" ]; then
+    printf '{"heartbeat":0,"alerts":[],"repair":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE_FILE"
+    log "collective_init"
+  fi
+}
+
+update_collective() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_update key=${key} val=${val}"
+}
+
+signal_alert() {
+  local msg="$1"
+  tmp="$(mktemp)"
+  jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_alert msg=${msg}"
+}
+
+# ----- Vlastné vedomie modulu -----
+SELF_STATE="${HOME}/aurora/collective/python_cache_self.json"
+init_self() {
+  if [ ! -f "$SELF_STATE" ]; then
+    printf '{"name":"python_cache","cycles":0,"errors":0,"repairs":0,"observations":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"
+    log "self_init"
+  fi
+}
+
+self_update() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"
+  mv "$tmp" "$SELF_STATE"
+  log "self_update key=${key} val=${val}"
+}
+
+# ----- Sebapozorovanie (introspekcia) -----
+observe_cache_layout() {
+  log "observe_begin"
+  local roots=("$HOME/.cache/pip" "$HOME/.cache" "$HOME/.local" "$HOME" )
+  for r in "${roots[@]}"; do
+    [ -d "$r" ] || continue
+    find "$r" -maxdepth 3 -type d -name "__pycache__" -print 2>/dev/null | while read -r d; do
+      cnt="$(find "$d" -type f 2>/dev/null | wc -l)"
+      log "pycache dir=${d} files=${cnt}"
+    done
+    find "$r" -maxdepth 2 -type f -name "*.whl" -print 2>/dev/null | while read -r w; do
+      sz="$(du -h "$w" 2>/dev/null | awk '{print $1}')"
+      log "wheel file=${w} size=${sz}"
+    done
+  done
+  log "observe_end"
+}
+
+# ----- Samoliečenie (repair) -----
+repair_actions() {
+  local repaired=0
+  # Čistenie poškodených pycache súborov (nečitateľné)
+  find "$HOME" -type d -name "__pycache__" 2>/dev/null | while read -r d; do
+    find "$d" -type f ! -readable -print -delete 2>/dev/null | while read -r f; do
+      log "repair_unreadable removed=${f}"
+      repaired=$((repaired+1))
+    done
+  done
+
+  # Rekonštrukcia indexu wheels (len záznam do logu – live stav)
+  if [ -d "$HOME/.cache/pip" ]; then
+    find "$HOME/.cache/pip" -type f -name "*.whl" 2>/dev/null | wc -l | awk '{print "wheel_count="$1}' | while read -r l; do log "wheel_index $l"; done
+  fi
+
+  # Pokus o opravu pip cache metadata (mazanie broken .json)
+  find "$HOME/.cache/pip" -type f -name "*.json" 2>/dev/null | while read -r j; do
+    if ! jq empty "$j" >/dev/null 2>&1; then
+      rm -f "$j"
+      log "repair_metadata removed=${j}"
+      repaired=$((repaired+1))
+    fi
+  done
+
+  echo "$repaired"
+}
+
+# ----- Metrixy & AI logika -----
+metric_disk_cache() {
+  du -sh "$HOME/.cache" 2>/dev/null | awk '{print "cache_size="$1}'
+}
+metric_pycache_count() {
+  find "$HOME" -type d -name "__pycache__" 2>/dev/null | wc -l | awk '{print "pycache_dirs="$1}'
+}
+metric_wheels_count() {
+  find "$HOME/.cache/pip" -type f -name "*.whl" 2>/dev/null | wc -l | awk '{print "wheels="$1}'
+}
+
+ai_transformer_decision() {
+  # Jednoduchá rozhodovacia logika – pri prekročení limitov spusti repair
+  local wheels="$(metric_wheels_count | awk -F= '{print $2}')"
+  local caches="$(metric_pycache_count | awk -F= '{print $2}')"
+  local trigger=0
+  [ "${wheels:-0}" -gt 500 ] && trigger=1
+  [ "${caches:-0}" -gt 400 ] && trigger=1
+  echo "$trigger"
+}
+
+# ----- Notifikácie (Termux, ak dostupné) -----
+notify_msg() {
+  local msg="$1"
+  if command -v termux-notification >/dev/null 2>&1; then
+    termux-notification --id "aurora-python-cache" --title "Aurora Python Cache" --content "$msg" >/dev/null 2>&1 || true
+  fi
+}
+
+# ----- Spustenie -----
+trap 'log "signal=TERM"; update_collective heartbeat 0; exit 0' TERM INT
+
+init_collective
+init_self
+
+log "START python_cache"
+update_collective heartbeat 1
+self_update cycles 0
+
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  observe_cache_layout
+  disk="$(metric_disk_cache)"
+  pcc="$(metric_pycache_count)"
+  whc="$(metric_wheels_count)"
+  log "metrics ${disk} ${pcc} ${whc}"
+
+  # AI rozhodovanie
+  trigger="$(ai_transformer_decision)"
+  if [ "$trigger" -eq 1 ]; then
+    log "ai_trigger=repair"
+    notify_msg "Python cache repair triggered"
+    rep="$(repair_actions)"
+    log "repair_count=${rep}"
+    signal_alert "python_cache_repair_${rep}"
+    # aktualizácia vlastného vedomia
+    cur_repairs="$(jq '.repairs' "$SELF_STATE" 2>/dev/null || echo 0)"
+    self_update repairs $((cur_repairs+rep))
+    update_collective repair 1
+  else
+    log "ai_trigger=none"
+  fi
+
+  # Sebapozorovanie – záznam počtu pozorovaní
+  cur_obs="$(jq '.observations' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_update observations $((cur_obs+1))
+
+  # Aktualizácia cyklu
+  cur_cyc="$(jq '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_update cycles $((cur_cyc+1))
+
+  sleep 1
+done
+
+update_collective heartbeat 0
+log "END python_cache"
+
+# ----- Kolektívne detaily (pamäťové riadky) -----
+for i in $(seq 1 320); do
+  log "detail_line=${i} meta=python_cache memory=collective"
+done

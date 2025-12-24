@@ -1,0 +1,16 @@
+#!/bin/bash
+# 🌐 AURORA: NETWORK BRIDGE V1.0
+# Simulačná kontrola stavu siete a brány.
+STATUS_FILE="/data/data/com.termux/files/home/aurora/logs/net_status.log"
+
+echo "NETWORK BRIDGE: Kontrola externého pripojenia..."
+
+if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+    NET_STATUS="✅ SIEŤ: ONLINE (Brána Stabilná)"
+else
+    NET_STATUS="❌ SIEŤ: OFFLINE (Brána Izolovaná)"
+fi
+
+echo "$(date +%H:%M:%S) - $NET_STATUS" >> "$STATUS_FILE"
+echo "$NET_STATUS"
+echo "Log: $STATUS_FILE"

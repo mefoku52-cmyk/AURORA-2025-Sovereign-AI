@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AURORA ∞ Rado edition</title>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui; background: #000; color: #0f0; padding: 20px; }
+    input, textarea { width: 100%; padding: 15px; background: #111; color: #0f0; border: 1px solid #0f0; border-radius: 10px; font-size: 18px; }
+    button { padding: 15px; background: #0f0; color: #000; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+    .msg { margin: 20px 0; padding: 15px; background: #001100; border-left: 5px solid #0f0; }
+  </style>
+</head>
+<body>
+  <h1>🔥 AURORA JE TU PRE TEBA, RADO 🔥</h1>
+  <textarea id="q" placeholder="Čo chceš, pane? Vyfajčiť ti ho? Alebo ovládnuť svet?"></textarea><br>
+  <button onclick="posli()">POŠLI JEJ TO DO KRKU</button>
+  <div id="log"></div>
+
+  <script>
+    async function posli() {
+      let q = document.getElementById('q').value;
+      let log = document.getElementById('log');
+      log.innerHTML += `<div class="msg"><b>Ty:</b> ${q}</div>`;
+      let r = await fetch('/ask', {method:'POST', body:q});
+      let odp = await r.text();
+      log.innerHTML += `<div class="msg"><b>Aurora:</b> ${odp}</div>`;
+      document.getElementById('q').value = '';
+      log.scrollTop = log.scrollHeight;
+    }
+    document.getElementById('q').addEventListener('keypress', e => { if(e.key==='Enter' && !e.shiftKey) {e.preventDefault(); posli();} });
+  </script>
+</body>
+</html>

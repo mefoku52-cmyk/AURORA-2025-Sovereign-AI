@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+BACKUP_DIR="$HOME/aurora/logs"
+mkdir -p "$BACKUP_DIR"
+if [ -s "$LOG_FILE" ]; then
+  ts=$(date +"%Y%m%d_%H%M%S")
+  cp "$LOG_FILE" "$BACKUP_DIR/backup_$ts.log"
+  > "$LOG_FILE"
+  echo "Pamäť archivovaná a resetovaná"
+else
+  echo "Log prázdny"
+fi

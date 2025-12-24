@@ -1,0 +1,90 @@
+#!/bin/bash
+# ============================================================
+# 🔥 AURORA SCRIPT: puls_dashboard (OPRAVENÝ - NEKONEČNÝ BEH)
+# Popis: Dashboard monitoring – vizualizácia systémových stavov
+# Autor: Aurora Generator
+# Dátum: $(date)
+# ============================================================
+
+# Tento skript simuluje dashboard, ktorý monitoruje CPU, RAM, sieť a procesy.
+
+echo "🔥 Spúšťam modul: puls_dashboard"
+echo "STATUS: INIT | TIME: $(date)"
+
+# -------------------------------
+# Sekcia 1: Inicializácia
+# -------------------------------
+function init_module() {
+  echo "[INIT] Modul puls_dashboard inicializovaný."
+}
+
+# -------------------------------
+# Sekcia 2: Logovanie
+# -------------------------------
+function log_status() {
+  echo "[LOG] $1 | TIME: $(date)"
+}
+
+# -------------------------------
+# Sekcia 3: CPU monitor
+# -------------------------------
+function cpu_monitor() {
+  for i in $(seq 1 20); do
+    echo "[CPU] Usage cycle $i: $((RANDOM % 100))%"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 4: RAM monitor
+# -------------------------------
+function ram_monitor() {
+  for i in $(seq 1 20); do
+    echo "[RAM] Usage cycle $i: $((RANDOM % 4096))MB"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 5: Network monitor
+# -------------------------------
+function net_monitor() {
+  for i in $(seq 1 20); do
+    echo "[NET] Packets cycle $i: $((RANDOM % 10000))"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 6: Hlavná slučka (TERAZ NEKONEČNÁ)
+# -------------------------------
+init_module
+
+while true; do  # <--- NEKONEČNÁ SLUČKA ZABRAŇUJÚCA UKONČENIU
+  log_status "Cyklus Master Slučky beží"
+  
+  # Bežná simulácia 10 cyklov
+  for k in $(seq 1 10); do
+    echo "--- Monitoring Cyklus $k/10 ---"
+    cpu_monitor
+    ram_monitor
+    net_monitor
+  done
+
+  # -------------------------------
+  # Sekcia 7: Extra detaily (Vykoná sa po 10 cykloch)
+  # -------------------------------
+  for m in $(seq 1 10); do
+    echo "[DETAIL] puls_dashboard detail line $m"
+  done
+  
+  # Dôležitá pauza medzi opakovaniami celej sady
+  log_status "Pauza pred novou sadou cyklov (15 sekúnd)"
+  sleep 15
+  
+done # <--- KONIEC NEKONEČNEJ SLUČKY
+
+# -------------------------------
+# Sekcia 8: Ukončenie (Tento kód je teraz NEDOSTUPNÝ)
+# -------------------------------
+# echo "COMPLETE: puls_dashboard"

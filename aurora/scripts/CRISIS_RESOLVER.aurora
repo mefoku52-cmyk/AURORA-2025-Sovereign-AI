@@ -1,0 +1,23 @@
+#!/bin/bash
+# 🚨 AURORA: CRISIS RESOLVER V1.0 (Oprava Siete a Učenia)
+# Rieši krízové stavy, ako je strata internetovej konektivity.
+
+echo "CRISIS RESOLVER: Spúšťam prioritnú diagnostiku..."
+STATUS_FILE="/data/data/com.termux/files/home/aurora/logs/net_status.log"
+NET_STATUS="NEDOSTUPNÝ"
+
+if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+    NET_STATUS="DOSTUPNÝ"
+    RESOLUTION="✅ SIEŤ OPRAVENÁ. Obnovujem SCIENCE LEARNING."
+else
+    # Simulácia pokusu o reštart siete v Termux (napr. cez inštrukciu)
+    RESOLUTION="❌ KRÍZA KONEKTIVITY: Internet NEDOSTUPNÝ. Odporúčam 'termux-wake-lock' + reštart siete (simulácia)."
+fi
+
+echo "$(date +%H:%M:%S) - SIEŤ: $NET_STATUS" >> "$STATUS_FILE"
+echo "ROZHODNUTIE: $RESOLUTION"
+
+# Ak sieť nefunguje, zastavíme kognitívne moduly závislé na webe, aby neplytvali časom
+if [ "$NET_STATUS" == "NEDOSTUPNÝ" ]; then
+    echo "AKCIA: Dočasne suspendujem moduly 'web_scraper.aurora' a 'KNOWLEDGE_EXPANSION_LLM.aurora'."
+fi

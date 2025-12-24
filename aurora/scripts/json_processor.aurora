@@ -1,0 +1,162 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: json_processor
+# Popis: Live spracovanie JSON súborov (validácia, transformácia, metadá), kolektívne vedomie,
+#        vlastné vedomie modulu, sebapozorovanie (formáty), samoliečenie (reformat/repair)
+# Log: ~/aurora/logs/json_processor.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/json_processor.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[json_processor] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# ----- Kolektívne vedomie -----
+COLLECTIVE_STATE_FILE="${HOME}/aurora/collective/state.json"
+mkdir -p "$(dirname "$COLLECTIVE_STATE_FILE")"
+
+init_collective() {
+  [ -f "$COLLECTIVE_STATE_FILE" ] || printf '{"heartbeat":0,"alerts":[],"repair":0,"last_update":"%s"}\n' "$(timestamp)" > "$COLLECTIVE_STATE_FILE"
+}
+update_collective() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_update key=${key} val=${val}"
+}
+signal_alert() {
+  local msg="$1"
+  tmp="$(mktemp)"
+  jq ".alerts += [\"$msg\"] | .last_update = \"$(timestamp)\"" "$COLLECTIVE_STATE_FILE" > "$tmp" 2>/dev/null || cp "$COLLECTIVE_STATE_FILE" "$tmp"
+  mv "$tmp" "$COLLECTIVE_STATE_FILE"
+  log "collective_alert msg=${msg}"
+}
+
+# ----- Vlastné vedomie -----
+SELF_STATE="${HOME}/aurora/collective/json_processor_self.json"
+init_self() {
+  [ -f "$SELF_STATE" ] || printf '{"name":"json_processor","cycles":0,"errors":0,"repairs":0,"observations":0,"last":"%s"}\n' "$(timestamp)" > "$SELF_STATE"
+}
+self_update() {
+  local key="$1" val="$2"
+  tmp="$(mktemp)"
+  jq ".$key = $val | .last = \"$(timestamp)\"" "$SELF_STATE" > "$tmp" 2>/dev/null || cp "$SELF_STATE" "$tmp"
+  mv "$tmp" "$SELF_STATE"
+  log "self_update key=${key} val=${val}"
+}
+
+# ----- Vyhľadanie JSON súborov -----
+discover_json() {
+  find "$HOME" -type f -name "*.json" -print 2>/dev/null
+}
+
+# ----- Validácia & metadá -----
+validate_json() {
+  local file="$1"
+  if jq empty "$file" >/dev/null 2>&1; then
+    echo "valid"
+  else
+    echo "invalid"
+  fi
+}
+metadata_json() {
+  local file="$1"
+  local size="$(stat -c %s "$file" 2>/dev/null || wc -c < "$file" 2>/dev/null)"
+  printf "file=%s size=%sB" "$file" "$size"
+}
+
+# ----- Transformácie -----
+beautify_json() {
+  local file="$1"
+  tmp="$(mktemp)"
+  jq '.' "$file" > "$tmp" 2>/dev/null && mv "$tmp" "$file" && echo "beautified" || { rm -f "$tmp"; echo "beautify_fail"; }
+}
+
+minify_json() {
+  local file="$1"
+  tmp="$(mktemp)"
+  jq -c '.' "$file" > "$tmp" 2>/dev/null && mv "$tmp" "$file" && echo "minified" || { rm -f "$tmp"; echo "minify_fail"; }
+}
+
+# ----- AI rozhodovanie -----
+ai_choose_transform() {
+  local file="$1"
+  local size="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+  # Ak je súbor väčší ako 200KB, minifikuj; inak beautify
+  if [ "${size:-0}" -gt 204800 ]; then
+    echo "minify"
+  else
+    echo "beautify"
+  fi
+}
+
+notify_msg() {
+  local msg="$1"
+  if command -v termux-notification >/dev/null 2>&1; then
+    termux-notification --id "aurora-json" --title "Aurora JSON Processor" --content "$msg" >/dev/null 2>&1 || true
+  fi
+}
+
+trap 'log "signal=TERM"; update_collective heartbeat 0; exit 0' TERM INT
+
+init_collective
+init_self
+
+log "START json_processor"
+update_collective heartbeat 1
+self_update cycles 0
+
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  discover_json | while read -r f; do
+    meta="$(metadata_json "$f")"
+    val="$(validate_json "$f")"
+    log "json_meta ${meta}"
+    log "json_validate file=${f} status=${val}"
+
+    if [ "$val" = "invalid" ]; then
+      log "ai_trigger=repair file=${f}"
+      notify_msg "Repair JSON: $f"
+      res="$(beautify_json "$f")"
+      if [ "$res" = "beautified" ]; then
+        signal_alert "json_repaired_${f}"
+        cur_repairs="$(jq '.repairs' "$SELF_STATE" 2>/dev/null || echo 0)"
+        self_update repairs $((cur_repairs+1))
+        update_collective repair 1
+      else
+        log "repair_failed file=${f}"
+      fi
+    else
+      action="$(ai_choose_transform "$f")"
+      case "$action" in
+        minify)
+          res="$(minify_json "$f")"
+          log "transform file=${f} action=minify result=${res}"
+          ;;
+        beautify)
+          res="$(beautify_json "$f")"
+          log "transform file=${f} action=beautify result=${res}"
+          ;;
+      esac
+    fi
+
+    cur_obs="$(jq '.observations' "$SELF_STATE" 2>/dev/null || echo 0)"
+    self_update observations $((cur_obs+1))
+  done
+
+  cur_cyc="$(jq '.cycles' "$SELF_STATE" 2>/dev/null || echo 0)"
+  self_update cycles $((cur_cyc+1))
+
+  sleep 1
+done
+
+update_collective heartbeat 0
+log "END json_processor"
+
+for i in $(seq 1 380); do
+  log "detail_line=${i} meta=json_processor memory=collective"
+done

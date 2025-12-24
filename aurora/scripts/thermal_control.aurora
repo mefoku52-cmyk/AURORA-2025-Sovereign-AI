@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 42: thermal_control
+# Popis: Live teploty zariadenia, ochranné zásahy, editor log
+# Log:   ~/aurora/logs/thermal_control.log
+# Edit:  ~/aurora/editors/thermal_control.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/thermal_control.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/thermal_control_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[thermal_control] $(ts) | $*" | tee -a "${LOG_DIR}/thermal_control.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"thermal":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"thermal_control","cycles":0,"errors":0,"observations":0,"cooldowns":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+read_temps(){ for p in /sys/class/thermal/thermal_zone*/temp; do [ -r "$p" ] && awk -v z="$p" '{printf "%s=%.1fC\n",z,$1/1000}' "$p"; done; }
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START thermal_control"
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  read_temps | while read -r l; do log "temp ${l}"; edit_note "temp ${l}"; done
+  echo "$(< /sys/class/thermal/thermal_zone0/temp 2>/dev/null)" | awk '{t=$1/1000; if(t>65) print t}' | while read -r hot; do
+    log "cooldown triggered temp=${hot}C"; edit_note "cooldown temp=${hot}C"; sinc cooldowns; cset thermal 1
+  done
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END thermal_control"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

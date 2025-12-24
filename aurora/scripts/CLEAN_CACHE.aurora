@@ -1,0 +1,12 @@
+#!/bin/bash
+# 🧹 AURORA: CLEAN CACHE V1.0
+# Optimalizácia systému a uvoľnenie zdrojov.
+CACHE_DIR="/data/data/com.termux/files/home/.cache/ultra"
+
+if [ -d "$CACHE_DIR" ]; then
+    rm -rf "$CACHE_DIR"/*
+    echo "✅ OPTIMALIZÁCIA: Cache vyčistená. Zdroje uvoľnené."
+else
+    mkdir -p "$CACHE_DIR"
+    echo "✅ OPTIMALIZÁCIA: Cache adresár vytvorený. Pripravený."
+fi

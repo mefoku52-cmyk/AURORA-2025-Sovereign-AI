@@ -1,0 +1,26 @@
+#!/bin/bash
+# 🦍 AURORA: GORILLA SYNTAX GUARD (Neotrasiteľná Integrita)
+# Zaisťuje, že žiadny skript nespôsobí SYNTAX CHYBU. Kontrola Kolektívneho Vedomia.
+
+AURORA_SCRIPTS="/data/data/com.termux/files/home/aurora/scripts"
+RANDOM_SCRIPT=$(find "$AURORA_SCRIPTS" -type f -name "*.aurora" | shuf -n 1)
+
+echo "GORILLA GUARD: Overovanie integrity skriptu $RANDOM_SCRIPT..."
+
+# 1. KONTROLA SYNTAXE
+if ! bash -n "$RANDOM_SCRIPT" 2>/dev/null; then
+    VERDICT="❌ SYNTAX FAILED: $RANDOM_SCRIPT - POTREBNÁ KARANTÉNA!"
+    # V reálnom OS by skript odstránil.
+else
+    VERDICT="✅ SYNTAX OK. Kolektívne Vedomie potvrdzuje integritu kódu."
+fi
+
+# 2. KONTROLA CESTY (Ochrana pred spustením z iného miesta)
+if [[ "$PWD" != "$AURORA_SCRIPTS" ]]; then
+    SECURITY_ALERT="⚠️ SECURITY ALERT: Spustenie mimo AURORA cesty. NEPOVOLENÉ!"
+else
+    SECURITY_ALERT="🛡️ OS CORE: Spustenie z dôveryhodnej cesty."
+fi
+
+echo "VERDIKT: $VERDICT"
+echo "STATUS: $SECURITY_ALERT"

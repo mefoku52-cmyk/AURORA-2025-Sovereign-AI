@@ -1,0 +1,1495 @@
+[
+  {
+    "scripts": [
+      {
+        "name": "aurora_brain.py",
+        "type": "Python",
+        "size_bytes": 3193,
+        "modified": "2025-12-03T19:16:10.896000"
+      },
+      {
+        "name": "attach_agents_ultron.sh",
+        "type": "Shell",
+        "size_bytes": 2165,
+        "modified": "2025-12-03T10:56:56.361039"
+      },
+      {
+        "name": "start_ultron_full.sh",
+        "type": "Shell",
+        "size_bytes": 2683,
+        "modified": "2025-12-03T11:00:48.341039"
+      },
+      {
+        "name": "ultra_swarm_real_learn.py",
+        "type": "Python",
+        "size_bytes": 2187,
+        "modified": "2025-12-03T18:55:34.560000"
+      },
+      {
+        "name": "AURORA_X.py",
+        "type": "Python",
+        "size_bytes": 3257,
+        "modified": "2025-12-03T19:33:38.432000"
+      },
+      {
+        "name": "AURORA_X_FINAL.py",
+        "type": "Python",
+        "size_bytes": 3188,
+        "modified": "2025-12-03T19:37:10.032000"
+      },
+      {
+        "name": "AURORA_X_ULTIMATE.py",
+        "type": "Python",
+        "size_bytes": 5443,
+        "modified": "2025-12-03T20:14:41.304000"
+      },
+      {
+        "name": "scraper.sh",
+        "type": "Shell",
+        "size_bytes": 672,
+        "modified": "2025-12-05T05:10:19.473251"
+      },
+      {
+        "name": "faiss_brain.py",
+        "type": "Python",
+        "size_bytes": 2166,
+        "modified": "2025-12-05T05:10:19.541251"
+      },
+      {
+        "name": "control.sh",
+        "type": "Shell",
+        "size_bytes": 909,
+        "modified": "2025-12-05T05:10:19.613251"
+      }
+    ]
+  },
+  {
+    "logs": [
+      {
+        "archive": []
+      },
+      {
+        "agents_state": []
+      }
+    ]
+  },
+  {
+    "collective": [
+      {
+        "modules": [
+          {
+            "name": "archetype.sh",
+            "type": "Shell",
+            "size_bytes": 2739,
+            "modified": "2025-12-02T22:09:54.632643"
+          }
+        ]
+      },
+      {
+        "logs": []
+      },
+      {
+        "api_breakers": []
+      },
+      {
+        "api_latency": []
+      }
+    ]
+  },
+  {
+    "collective_true": [
+      {
+        "modules": [
+          {
+            "name": "archetype.sh",
+            "type": "Shell",
+            "size_bytes": 2316,
+            "modified": "2025-12-02T22:14:21.124643"
+          }
+        ]
+      },
+      {
+        "logs": []
+      },
+      {
+        "name": "writer.sh",
+        "type": "Shell",
+        "size_bytes": 168,
+        "modified": "2025-12-02T22:14:21.068643"
+      }
+    ]
+  },
+  {
+    "editors": []
+  },
+  {
+    "api_targets": []
+  },
+  {
+    "scraper": [
+      {
+        "queue": []
+      },
+      {
+        "snapshots": []
+      },
+      {
+        "hashes": []
+      }
+    ]
+  },
+  {
+    "repos": []
+  },
+  {
+    "data": []
+  },
+  {
+    "name": "install_v4_final.sh",
+    "type": "Shell",
+    "size_bytes": 7185,
+    "modified": "2025-12-03T19:58:16.060000"
+  },
+  {
+    "bin": [
+      {
+        "name": "server.c",
+        "type": "C",
+        "size_bytes": 430,
+        "modified": "2025-12-03T20:03:01.648000"
+      }
+    ]
+  },
+  {
+    "name": "aurora_x_final.sh",
+    "type": "Shell",
+    "size_bytes": 985,
+    "modified": "2025-12-03T20:56:22.472001"
+  },
+  {
+    "name": "watchdog_forever.sh",
+    "type": "Shell",
+    "size_bytes": 503,
+    "modified": "2025-12-03T20:35:07.252001"
+  },
+  {
+    "name": "watchdog.sh",
+    "type": "Shell",
+    "size_bytes": 172,
+    "modified": "2025-12-03T20:56:22.508001"
+  },
+  {
+    "name": "aurora_x_undying.sh",
+    "type": "Shell",
+    "size_bytes": 731,
+    "modified": "2025-12-03T20:54:06.020000"
+  },
+  {
+    "name": "watchdog_undying.sh",
+    "type": "Shell",
+    "size_bytes": 275,
+    "modified": "2025-12-03T20:54:06.108001"
+  },
+  {
+    "name": "aurora_x_final_safe.sh",
+    "type": "Shell",
+    "size_bytes": 1974,
+    "modified": "2025-12-03T20:59:52.020000"
+  },
+  {
+    "name": "aurora_monitor.sh",
+    "type": "Shell",
+    "size_bytes": 724,
+    "modified": "2025-12-03T21:06:09.172001"
+  },
+  {
+    "name": "aurora_complete_system.sh",
+    "type": "Shell",
+    "size_bytes": 4629,
+    "modified": "2025-12-03T21:15:45.716001"
+  },
+  {
+    "name": "aurora_ultra_light.sh",
+    "type": "Shell",
+    "size_bytes": 4105,
+    "modified": "2025-12-03T21:17:45.660001"
+  },
+  {
+    "name": "simple_faiss.py",
+    "type": "Python",
+    "size_bytes": 960,
+    "modified": "2025-12-03T21:20:33.752001"
+  },
+  {
+    "name": "manage.sh",
+    "type": "Shell",
+    "size_bytes": 1196,
+    "modified": "2025-12-03T21:28:42.724001"
+  },
+  {
+    "name": "full_faiss.py",
+    "type": "Python",
+    "size_bytes": 1381,
+    "modified": "2025-12-03T21:22:38.772001"
+  },
+  {
+    "name": "full_faiss_fixed.py",
+    "type": "Python",
+    "size_bytes": 1363,
+    "modified": "2025-12-03T21:27:39.844001"
+  },
+  {
+    "name": "find_ai_os_modules.sh",
+    "type": "Shell",
+    "size_bytes": 3183,
+    "modified": "2025-12-03T22:02:07.792342"
+  },
+  {
+    "name": "bridge_neutron_fixed.py",
+    "type": "Python",
+    "size_bytes": 8780,
+    "modified": "2025-12-04T01:26:02.680475"
+  },
+  {
+    "name": "bridge_neutron_final.py",
+    "type": "Python",
+    "size_bytes": 7410,
+    "modified": "2025-12-05T05:32:06.081251"
+  },
+  {
+    "name": "aios_real_bridge.py",
+    "type": "Python",
+    "size_bytes": 9930,
+    "modified": "2025-12-04T01:45:03.182934"
+  },
+  {
+    "name": "aios_real_bridge_final.py",
+    "type": "Python",
+    "size_bytes": 9328,
+    "modified": "2025-12-04T01:47:59.686934"
+  },
+  {
+    "name": "aios_real_integracia.py",
+    "type": "Python",
+    "size_bytes": 13158,
+    "modified": "2025-12-04T01:52:56.226934"
+  },
+  {
+    "name": "aios_final_kernel.py",
+    "type": "Python",
+    "size_bytes": 11756,
+    "modified": "2025-12-04T01:57:30.850934"
+  },
+  {
+    "name": "aios_cli.py",
+    "type": "Python",
+    "size_bytes": 2727,
+    "modified": "2025-12-04T02:00:04.298934"
+  },
+  {
+    "name": "aios_kernel_complete.py",
+    "type": "Python",
+    "size_bytes": 14191,
+    "modified": "2025-12-04T02:01:28.986934"
+  },
+  {
+    "name": "aios_kernel_complete_final.py",
+    "type": "Python",
+    "size_bytes": 4542,
+    "modified": "2025-12-05T21:26:33.039351"
+  },
+  {
+    "modules": [
+      {
+        "name": "r4c0_genesis_total_part2.sh",
+        "type": "Shell",
+        "size_bytes": 28834,
+        "modified": "2025-12-04T04:51:44.097385"
+      }
+    ]
+  },
+  {
+    "name": "scraper_clean.sh",
+    "type": "Shell",
+    "size_bytes": 2991,
+    "modified": "2025-12-04T13:59:42.240330"
+  },
+  {
+    "name": "scraper_ultra_clean.sh",
+    "type": "Shell",
+    "size_bytes": 2887,
+    "modified": "2025-12-04T14:01:54.504330"
+  },
+  {
+    "name": "genesis_activation.sh",
+    "type": "Shell",
+    "size_bytes": 5500,
+    "modified": "2025-12-04T23:13:42.116381"
+  },
+  {
+    "name": "RSI_GODMODE.py",
+    "type": "Python",
+    "size_bytes": 5396,
+    "modified": "2025-12-05T01:22:00.820221"
+  },
+  {
+    "name": "RSI_GODMODE_LIVE.py",
+    "type": "Python",
+    "size_bytes": 2951,
+    "modified": "2025-12-05T01:28:15.804221"
+  },
+  {
+    "name": "RSI_GODMODE_FINAL.py",
+    "type": "Python",
+    "size_bytes": 6936,
+    "modified": "2025-12-05T01:30:55.116221"
+  },
+  {
+    "name": "RSI_GODMODE_APOKALYPSA.py",
+    "type": "Python",
+    "size_bytes": 7132,
+    "modified": "2025-12-05T01:34:48.324221"
+  },
+  {
+    "name": "RSI_CORE_PROFESSIONAL.py",
+    "type": "Python",
+    "size_bytes": 8238,
+    "modified": "2025-12-05T01:37:42.976221"
+  },
+  {
+    "name": "RSI_CORE_FULL.py",
+    "type": "Python",
+    "size_bytes": 14531,
+    "modified": "2025-12-05T03:55:14.333763"
+  },
+  {
+    "name": "RSI_CORE_OFFLINE.py",
+    "type": "Python",
+    "size_bytes": 7458,
+    "modified": "2025-12-05T03:58:54.333763"
+  },
+  {
+    "name": "rsi_app.py",
+    "type": "Python",
+    "size_bytes": 3603,
+    "modified": "2025-12-05T04:20:15.405763"
+  },
+  {
+    "name": "rsi_launcher.sh",
+    "type": "Shell",
+    "size_bytes": 929,
+    "modified": "2025-12-05T04:34:06.545251"
+  },
+  {
+    "name": "create_rsi_app.sh",
+    "type": "Shell",
+    "size_bytes": 890,
+    "modified": "2025-12-05T04:37:28.185251"
+  },
+  {
+    "buildAPKs": [
+      {
+        ".git": [
+          {
+            "hooks": []
+          },
+          {
+            "info": []
+          },
+          {
+            "objects": [
+              {
+                "pack": []
+              },
+              {
+                "info": []
+              }
+            ]
+          },
+          {
+            "refs": [
+              {
+                "heads": []
+              },
+              {
+                "tags": []
+              },
+              {
+                "remotes": [
+                  {
+                    "origin": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "logs": [
+              {
+                "refs": [
+                  {
+                    "remotes": [
+                      {
+                        "origin": []
+                      }
+                    ]
+                  },
+                  {
+                    "heads": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        ".conf": []
+      },
+      {
+        ".github": [
+          {
+            "workflows": []
+          }
+        ]
+      },
+      {
+        ".scripts": [
+          {
+            "maintenance": [
+              {
+                "name": "upr.sh",
+                "type": "Shell",
+                "size_bytes": 548,
+                "modified": "2025-12-05T05:00:57.977251"
+              },
+              {
+                "name": "vgen.sh",
+                "type": "Shell",
+                "size_bytes": 488,
+                "modified": "2025-12-05T05:00:57.977251"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "buildMyFirstAPKs.sh",
+        "type": "Shell",
+        "size_bytes": 588,
+        "modified": "2025-12-05T05:00:57.981251"
+      },
+      {
+        "opt": [
+          {
+            "key": []
+          }
+        ]
+      },
+      {
+        "scripts": [
+          {
+            "bash": [
+              {
+                "build": []
+              },
+              {
+                "init": []
+              }
+            ]
+          },
+          {
+            "build": [
+              {
+                "name": "buildMyFirstAPK.sh",
+                "type": "Shell",
+                "size_bytes": 588,
+                "modified": "2025-12-05T05:00:57.981251"
+              },
+              {
+                "name": "buildMyFirstAPKs.sh",
+                "type": "Shell",
+                "size_bytes": 588,
+                "modified": "2025-12-05T05:00:57.981251"
+              }
+            ]
+          },
+          {
+            "ksh": [
+              {
+                "build": []
+              },
+              {
+                "init": []
+              }
+            ]
+          },
+          {
+            "maintenance": []
+          },
+          {
+            "sh": [
+              {
+                "build": [
+                  {
+                    "name": "build.dir.sh",
+                    "type": "Shell",
+                    "size_bytes": 443,
+                    "modified": "2025-12-05T05:00:57.989251"
+                  },
+                  {
+                    "name": "build.sh",
+                    "type": "Shell",
+                    "size_bytes": 2749,
+                    "modified": "2025-12-05T05:00:57.989251"
+                  }
+                ]
+              },
+              {
+                "init": [
+                  {
+                    "name": "setup.buildAPKs.sh",
+                    "type": "Shell",
+                    "size_bytes": 925,
+                    "modified": "2025-12-05T05:00:57.989251"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "zsh": [
+              {
+                "build": []
+              },
+              {
+                "init": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "var": []
+      }
+    ]
+  },
+  {
+    "name": "bridge_neutron.py",
+    "type": "Python",
+    "size_bytes": 6459,
+    "modified": "2025-12-05T05:28:26.677251"
+  },
+  {
+    "name": "aios_whisper_vision.py",
+    "type": "Python",
+    "size_bytes": 4582,
+    "modified": "2025-12-05T05:34:35.181251"
+  },
+  {
+    "name": "aios_yolo_vision.py",
+    "type": "Python",
+    "size_bytes": 3620,
+    "modified": "2025-12-05T05:34:50.873251"
+  },
+  {
+    "name": "aios_god_emotions.py",
+    "type": "Python",
+    "size_bytes": 4932,
+    "modified": "2025-12-05T05:35:57.721251"
+  },
+  {
+    "name": "rsi_boh.cpp",
+    "type": "C++",
+    "size_bytes": 2546,
+    "modified": "2025-12-05T05:37:29.997251"
+  },
+  {
+    "name": "aios_cpp_kernel.cpp",
+    "type": "C++",
+    "size_bytes": 6989,
+    "modified": "2025-12-05T05:40:27.385251"
+  },
+  {
+    "name": "aios_cpp_final.cpp",
+    "type": "C++",
+    "size_bytes": 5607,
+    "modified": "2025-12-05T05:43:25.597251"
+  },
+  {
+    "name": "GOD_LEARN.cpp",
+    "type": "C++",
+    "size_bytes": 483,
+    "modified": "2025-12-05T05:48:40.273251"
+  },
+  {
+    "name": "aios_ndk.cpp",
+    "type": "C++",
+    "size_bytes": 4232,
+    "modified": "2025-12-05T08:15:05.702051"
+  },
+  {
+    "name": "AIOS_GOD_NEURONS.cpp",
+    "type": "C++",
+    "size_bytes": 4399,
+    "modified": "2025-12-05T08:25:43.390051"
+  },
+  {
+    "name": "AIOS_GOD_OMEGA.cpp",
+    "type": "C++",
+    "size_bytes": 4345,
+    "modified": "2025-12-05T08:28:15.602051"
+  },
+  {
+    "name": "aios_god_unified.py",
+    "type": "Python",
+    "size_bytes": 3049,
+    "modified": "2025-12-05T08:36:03.926051"
+  },
+  {
+    "name": "AIOS_GOD_3000.cpp",
+    "type": "C++",
+    "size_bytes": 654369,
+    "modified": "2025-12-05T08:37:19.158051"
+  },
+  {
+    "name": "aios_main.py",
+    "type": "Python",
+    "size_bytes": 5556,
+    "modified": "2025-12-05T11:12:14.952921"
+  },
+  {
+    "name": "aios_ipc.py",
+    "type": "Python",
+    "size_bytes": 2072,
+    "modified": "2025-12-05T11:01:11.748921"
+  },
+  {
+    "name": "aios_god_real_telemetry.py",
+    "type": "Python",
+    "size_bytes": 4109,
+    "modified": "2025-12-05T11:11:11.972921"
+  },
+  {
+    "name": "aios_god_final_fixed.py",
+    "type": "Python",
+    "size_bytes": 5474,
+    "modified": "2025-12-05T11:17:13.536921"
+  },
+  {
+    "name": "master_cycle_150.sh",
+    "type": "Shell",
+    "size_bytes": 1922,
+    "modified": "2025-12-05T16:25:27.826711"
+  },
+  {
+    "name": "ai_os_master.sh",
+    "type": "Shell",
+    "size_bytes": 2522,
+    "modified": "2025-12-05T16:26:29.630712"
+  },
+  {
+    "name": "aurora_pulse_generator.py",
+    "type": "Python",
+    "size_bytes": 2150,
+    "modified": "2025-12-05T20:44:29.435351"
+  },
+  {
+    "name": "aurora_immortal.py",
+    "type": "Python",
+    "size_bytes": 290,
+    "modified": "2025-12-05T21:26:33.115351"
+  },
+  {
+    "learning": [
+      {
+        "name": "night_crawler.py",
+        "type": "Python",
+        "size_bytes": 1035,
+        "modified": "2025-12-05T20:52:17.223351"
+      }
+    ]
+  },
+  {
+    "name": "hey_aurora.py",
+    "type": "Python",
+    "size_bytes": 584,
+    "modified": "2025-12-05T21:26:33.247351"
+  },
+  {
+    "name": "realtime_learning.py",
+    "type": "Python",
+    "size_bytes": 3373,
+    "modified": "2025-12-06T07:31:11.957859"
+  },
+  {
+    ".git": [
+      {
+        "hooks": []
+      },
+      {
+        "info": []
+      },
+      {
+        "refs": [
+          {
+            "heads": []
+          },
+          {
+            "tags": []
+          }
+        ]
+      },
+      {
+        "objects": [
+          {
+            "pack": []
+          },
+          {
+            "info": []
+          },
+          {
+            "3d": []
+          },
+          {
+            "73": []
+          },
+          {
+            "a8": []
+          },
+          {
+            "ab": []
+          },
+          {
+            "65": []
+          },
+          {
+            "b8": []
+          },
+          {
+            "8d": []
+          },
+          {
+            "35": []
+          },
+          {
+            "fe": []
+          },
+          {
+            "e9": []
+          },
+          {
+            "6d": []
+          },
+          {
+            "b9": []
+          },
+          {
+            "1d": []
+          },
+          {
+            "d8": []
+          },
+          {
+            "d0": []
+          },
+          {
+            "53": []
+          },
+          {
+            "34": []
+          },
+          {
+            "30": []
+          },
+          {
+            "9e": []
+          },
+          {
+            "1c": []
+          },
+          {
+            "f9": []
+          },
+          {
+            "dc": []
+          },
+          {
+            "99": []
+          },
+          {
+            "39": []
+          },
+          {
+            "11": []
+          },
+          {
+            "33": []
+          },
+          {
+            "cc": []
+          },
+          {
+            "17": []
+          },
+          {
+            "06": []
+          },
+          {
+            "9f": []
+          },
+          {
+            "10": []
+          },
+          {
+            "b1": []
+          },
+          {
+            "6f": []
+          },
+          {
+            "22": []
+          },
+          {
+            "db": []
+          },
+          {
+            "98": []
+          },
+          {
+            "4d": []
+          },
+          {
+            "55": []
+          },
+          {
+            "bb": []
+          },
+          {
+            "ea": []
+          },
+          {
+            "f8": []
+          },
+          {
+            "ff": []
+          },
+          {
+            "3e": []
+          },
+          {
+            "85": []
+          },
+          {
+            "89": []
+          },
+          {
+            "e2": []
+          },
+          {
+            "50": []
+          },
+          {
+            "48": []
+          },
+          {
+            "a6": []
+          },
+          {
+            "ce": []
+          },
+          {
+            "09": []
+          },
+          {
+            "1b": []
+          },
+          {
+            "96": []
+          },
+          {
+            "36": []
+          },
+          {
+            "e8": []
+          },
+          {
+            "37": []
+          },
+          {
+            "ad": []
+          },
+          {
+            "32": []
+          },
+          {
+            "84": []
+          },
+          {
+            "f1": []
+          },
+          {
+            "20": []
+          },
+          {
+            "e6": []
+          },
+          {
+            "68": []
+          },
+          {
+            "9a": []
+          },
+          {
+            "19": []
+          },
+          {
+            "6e": []
+          },
+          {
+            "5d": []
+          },
+          {
+            "4f": []
+          },
+          {
+            "9d": []
+          },
+          {
+            "7c": []
+          },
+          {
+            "0f": []
+          },
+          {
+            "21": []
+          },
+          {
+            "62": []
+          },
+          {
+            "87": []
+          },
+          {
+            "b3": []
+          },
+          {
+            "d7": []
+          },
+          {
+            "88": []
+          },
+          {
+            "b0": []
+          },
+          {
+            "f5": []
+          },
+          {
+            "52": []
+          },
+          {
+            "58": []
+          },
+          {
+            "03": []
+          },
+          {
+            "af": []
+          },
+          {
+            "0a": []
+          },
+          {
+            "5f": []
+          },
+          {
+            "9c": []
+          },
+          {
+            "69": []
+          },
+          {
+            "63": []
+          },
+          {
+            "71": []
+          },
+          {
+            "0d": []
+          },
+          {
+            "d3": []
+          },
+          {
+            "83": []
+          },
+          {
+            "93": []
+          },
+          {
+            "c6": []
+          },
+          {
+            "c3": []
+          },
+          {
+            "d6": []
+          },
+          {
+            "27": []
+          },
+          {
+            "49": []
+          },
+          {
+            "8e": []
+          },
+          {
+            "f6": []
+          },
+          {
+            "43": []
+          },
+          {
+            "80": []
+          },
+          {
+            "a0": []
+          },
+          {
+            "f7": []
+          },
+          {
+            "7b": []
+          },
+          {
+            "ef": []
+          },
+          {
+            "86": []
+          },
+          {
+            "e5": []
+          },
+          {
+            "da": []
+          },
+          {
+            "2d": []
+          },
+          {
+            "66": []
+          },
+          {
+            "a1": []
+          },
+          {
+            "c5": []
+          },
+          {
+            "02": []
+          },
+          {
+            "ca": []
+          },
+          {
+            "4c": []
+          },
+          {
+            "67": []
+          },
+          {
+            "d5": []
+          },
+          {
+            "59": []
+          },
+          {
+            "ec": []
+          },
+          {
+            "01": []
+          },
+          {
+            "ac": []
+          },
+          {
+            "fb": []
+          },
+          {
+            "e1": []
+          },
+          {
+            "3b": []
+          },
+          {
+            "8f": []
+          },
+          {
+            "a5": []
+          },
+          {
+            "cd": []
+          },
+          {
+            "5e": []
+          },
+          {
+            "4a": []
+          },
+          {
+            "7a": []
+          },
+          {
+            "60": []
+          },
+          {
+            "fa": []
+          },
+          {
+            "0e": []
+          },
+          {
+            "4e": []
+          },
+          {
+            "13": []
+          },
+          {
+            "47": []
+          },
+          {
+            "ae": []
+          },
+          {
+            "05": []
+          },
+          {
+            "23": []
+          },
+          {
+            "90": []
+          },
+          {
+            "d2": []
+          },
+          {
+            "f0": []
+          },
+          {
+            "6a": []
+          },
+          {
+            "a4": []
+          },
+          {
+            "1f": []
+          },
+          {
+            "be": []
+          },
+          {
+            "b2": []
+          },
+          {
+            "2c": []
+          },
+          {
+            "16": []
+          },
+          {
+            "91": []
+          },
+          {
+            "c4": []
+          },
+          {
+            "82": []
+          },
+          {
+            "c1": []
+          },
+          {
+            "5b": []
+          },
+          {
+            "64": []
+          },
+          {
+            "a2": []
+          },
+          {
+            "4b": []
+          },
+          {
+            "54": []
+          },
+          {
+            "46": []
+          },
+          {
+            "e4": []
+          },
+          {
+            "78": []
+          },
+          {
+            "45": []
+          },
+          {
+            "25": []
+          },
+          {
+            "77": []
+          },
+          {
+            "aa": []
+          },
+          {
+            "2e": []
+          },
+          {
+            "9b": []
+          },
+          {
+            "75": []
+          },
+          {
+            "a3": []
+          },
+          {
+            "2b": []
+          },
+          {
+            "29": []
+          },
+          {
+            "24": []
+          },
+          {
+            "2a": []
+          },
+          {
+            "c2": []
+          },
+          {
+            "1e": []
+          },
+          {
+            "df": []
+          },
+          {
+            "6c": []
+          },
+          {
+            "fc": []
+          },
+          {
+            "95": []
+          },
+          {
+            "5c": []
+          },
+          {
+            "18": []
+          },
+          {
+            "2f": []
+          },
+          {
+            "15": []
+          },
+          {
+            "bc": []
+          },
+          {
+            "1a": []
+          },
+          {
+            "97": []
+          },
+          {
+            "de": []
+          },
+          {
+            "eb": []
+          },
+          {
+            "fd": []
+          },
+          {
+            "d1": []
+          },
+          {
+            "94": []
+          },
+          {
+            "0b": []
+          },
+          {
+            "e7": []
+          },
+          {
+            "04": []
+          },
+          {
+            "f2": []
+          },
+          {
+            "76": []
+          },
+          {
+            "92": []
+          },
+          {
+            "bd": []
+          },
+          {
+            "56": []
+          },
+          {
+            "b6": []
+          },
+          {
+            "bf": []
+          },
+          {
+            "74": []
+          },
+          {
+            "44": []
+          },
+          {
+            "51": []
+          },
+          {
+            "07": []
+          },
+          {
+            "ee": []
+          },
+          {
+            "5a": []
+          },
+          {
+            "7e": []
+          },
+          {
+            "b7": []
+          },
+          {
+            "d4": []
+          },
+          {
+            "ba": []
+          },
+          {
+            "8a": []
+          },
+          {
+            "7f": []
+          },
+          {
+            "ed": []
+          },
+          {
+            "c7": []
+          },
+          {
+            "41": []
+          },
+          {
+            "cf": []
+          },
+          {
+            "26": []
+          },
+          {
+            "8b": []
+          },
+          {
+            "6b": []
+          },
+          {
+            "0c": []
+          },
+          {
+            "b5": []
+          },
+          {
+            "c8": []
+          },
+          {
+            "c9": []
+          },
+          {
+            "81": []
+          },
+          {
+            "7d": []
+          },
+          {
+            "e3": []
+          },
+          {
+            "57": []
+          },
+          {
+            "79": []
+          },
+          {
+            "61": []
+          },
+          {
+            "8c": []
+          },
+          {
+            "3f": []
+          },
+          {
+            "40": []
+          },
+          {
+            "12": []
+          },
+          {
+            "42": []
+          },
+          {
+            "d9": []
+          },
+          {
+            "31": []
+          },
+          {
+            "00": []
+          },
+          {
+            "e0": []
+          },
+          {
+            "c0": []
+          }
+        ]
+      },
+      {
+        "logs": [
+          {
+            "refs": [
+              {
+                "heads": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "aurora_gui.py",
+    "type": "Python",
+    "size_bytes": 3685,
+    "modified": "2025-12-06T08:39:45.369274"
+  }
+]

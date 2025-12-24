@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 46: temp_cleanup
+# Popis: Live čistenie dočasných súborov, editor záznamy
+# Log:   ~/aurora/logs/temp_cleanup.log
+# Edit:  ~/aurora/editors/temp_cleanup.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/temp_cleanup.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/temp_cleanup_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[temp_cleanup] $(ts) | $*" | tee -a "${LOG_DIR}/temp_cleanup.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"temp":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/div/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"temp_cleanup","cycles":0,"errors":0,"observations":0,"removed":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/div/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+clean_glob(){ local g="$1"; find "$HOME" -type f -name "$g" 2>/dev/null | while read -r f; do rm -f "$f"; log "rm ${f}"; edit_note "rm ${f}"; sinc removed; done; }
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START temp_cleanup"
+for cycle in $(seq 1 90); do
+  log "cycle=${cycle}"
+  clean_glob "*.tmp"; clean_glob "*.temp"; clean_glob "*~"
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/div/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END temp_cleanup"
+for i in $(seq 1 140); do edit_note "detail_line=${i}"; done

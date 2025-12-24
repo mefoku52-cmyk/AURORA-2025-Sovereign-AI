@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: memory_check
+# Popis: Live kontrola pamäte – využitie, swap, procesy
+# Log: ~/aurora/logs/memory_check.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/memory_check.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[memory_check] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+mem_stats() {
+  free -m | awk 'NR==2{printf "used=%sMB free=%sMB total=%sMB used_pct=%.2f", $3,$4,$2,$3*100/$2}'
+}
+
+swap_stats() {
+  free -m | awk 'NR==3{printf "swap_used=%sMB swap_free=%sMB swap_total=%sMB", $3,$4,$2}'
+}
+
+top_mem_procs() {
+  ps -eo pid,ppid,pmem,pcpu,cmd --sort=-pmem | head -n 15
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START memory_check"
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  log "$(mem_stats)"
+  log "$(swap_stats)"
+  top_mem_procs | while read -r l; do log "proc $l"; done
+  sleep 1
+done
+
+log "END memory_check"
+
+for i in $(seq 1 120); do
+  log "detail_line=${i}"
+done

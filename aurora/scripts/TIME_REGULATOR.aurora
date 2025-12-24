@@ -1,0 +1,21 @@
+#!/bin/bash
+# ⏱️ AURORA: TIME REGULATOR (Dynamická Kontrola Cyklu)
+# Zaisťuje, že cyklus sa dokončí v optimálnom čase (Dynamický Spánok).
+
+METRIC_LOG="/data/data/com.termux/files/home/aurora/logs/system_metrics.log"
+# Extrakcia CPU load z opraveného LOG_COLLECTOR (V2.0)
+CPU_LOAD=$(tail -n 1 "$METRIC_LOG" 2>/dev/null | awk -F 'CPU:' '{print $2}' | tr -d '[:space:]')
+TARGET_SLEEP=120 # Nový cieľový čas v sekundách
+
+echo "TIME REGULATOR: Analýza optimálnej doby spánku (Target: ${TARGET_SLEEP}s)..."
+
+# Simulácia dynamického rozhodovania na základe CPU
+if [ -z "$CPU_LOAD" ] || [ "$(echo "$CPU_LOAD < 10.0" | bc -l)" -eq 1 ]; then
+    SLEEP_DECISION="STABILNÁ ZÁŤAŽ: Spánok nastavený na ${TARGET_SLEEP} sekúnd."
+elif [ "$(echo "$CPU_LOAD > 50.0" | bc -l)"] -eq 1; then
+    SLEEP_DECISION="VYSOKÁ ZÁŤAŽ: Redukcia spánku na 30 sekúnd pre rýchlu reakciu. (Simulácia rýchlejšieho behu cyklu)"
+else
+    SLEEP_DECISION="VYVÁŽENÁ ZÁŤAŽ: Udržiavanie ${TARGET_SLEEP} sekúnd."
+fi
+
+echo "ROZHODNUTIE: $SLEEP_DECISION"

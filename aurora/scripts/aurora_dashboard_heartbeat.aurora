@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+
+frames=("♥   " " ♥  " "  ♥ " " ♥  ")
+i=0
+
+while true; do
+  clear
+  echo -e "\033[1;37;44m=== AURORA HEARTBEAT PANEL ===\033[0m"
+
+  # RAM
+  used=$(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (t-a)/1024}' /proc/meminfo)
+  echo -e "\033[1;36mRAM:\033[0m ${used%.*} MB" | tee -a "$LOG_FILE"
+
+  # CPU
+  load=$(awk '{print $1}' /proc/loadavg)
+  echo -e "\033[1;36mCPU Load:\033[0m $load" | tee -a "$LOG_FILE"
+
+  # Sieťové spojenia
+  estab=$(ss -tn 2>/dev/null | grep ESTAB | wc -l)
+  echo -e "\033[1;36mESTAB spojenia:\033[0m $estab" | tee -a "$LOG_FILE"
+
+  # Ping
+  if ping -c 1 -W 1 google.com >/dev/null 2>&1; then
+    echo -e "\033[1;32mKonektivita: OK\033[0m" | tee -a "$LOG_FILE"
+  else
+    echo -e "\033[1;31mKonektivita: NEDOSTUPNÁ\033[0m" | tee -a "$LOG_FILE"
+  fi
+
+  # Heartbeat animácia
+  echo -e "\033[1;34mHeartbeat:\033[0m ${frames[$i]}"
+  i=$(( (i+1) % ${#frames[@]} ))
+
+  sleep 15
+done

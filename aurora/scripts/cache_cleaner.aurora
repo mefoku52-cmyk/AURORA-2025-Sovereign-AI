@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 45: cache_cleaner
+# Popis: Live čistenie cache (selektívne), editor záznamy
+# Log:   ~/aurora/logs/cache_cleaner.log
+# Edit:  ~/aurora/editors/cache_cleaner.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/cache_cleaner.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/cache_cleaner_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[cache_cleaner] $(ts) | $*" | tee -a "${LOG_DIR}/cache_cleaner.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"cache":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"cache_cleaner","cycles":0,"errors":0,"observations":0,"cleaned":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+clean_target(){ local d="$1"; [ -d "$d" ] && sz="$(du -sh "$d" 2>/dev/null | awk '{print $1}')" && rm -rf "$d"/* 2>/dev/null && log "clean dir=${d} before=${sz}" && edit_note "clean ${d}" && sinc cleaned; }
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START cache_cleaner"
+targets=("$HOME/.cache" "$HOME/Download/.cache" "$HOME/.local/share/cache")
+for cycle in $(seq 1 60); do
+  log "cycle=${cycle}"
+  for d in "${targets[@]}"; do clean_target "$d"; done
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 2
+done
+cset heartbeat 0
+log "END cache_cleaner"
+for i in $(seq 1 140); do edit_note "detail_line=${i}"; done

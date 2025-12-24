@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+LOG_DIR="$HOME/aurora/logs"
+mkdir -p "$LOG_DIR"
+
+while true; do
+  ts=$(date +"%Y%m%d_%H%M%S")
+  snapshot="$LOG_DIR/system_snapshot_$ts.log"
+
+  {
+    echo "=== CYBERTRON + AURORA SNAPSHOT $ts ==="
+    echo "[RAM] $(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (t-a)/1024}' /proc/meminfo) MB"
+    echo "[CPU] $(awk '{print $1}' /proc/loadavg)"
+    command -v termux-battery-status >/dev/null 2>&1 && termux-battery-status
+    echo "[NET spojenia] $(ss -tn 2>/dev/null | grep ESTAB | wc -l)"
+    ping -c 1 -W 1 google.com >/dev/null 2>&1 && echo "[KONEKTIVITA OK]" || echo "[KONEKTIVITA CHYBA]"
+    suspicious=$(ps -e --no-headers | grep -E "nc|netcat|nmap|hydra|john" | wc -l)
+    [ "$suspicious" -gt 0 ] && echo "[CYBER ALERT] podozrivé procesy: $suspicious" || echo "[CYBER SAFE]"
+    ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 10
+    ls ~ | head -n 10
+    ls ~/aurora/scripts | grep ".aurora"
+    frames=("♥   " " ♥  " "  ♥ " " ♥  ")
+    echo "[HEARTBEAT] ${frames[$((RANDOM % 4))]}"
+    df -h | head -n 5
+    free -h
+    uptime
+    who
+    last | head -n 5
+    ip addr show | head -n 10
+    ss -ltn
+    nslookup google.com 2>/dev/null | head -n 5
+    uname -a
+    cat /etc/os-release | head -n 5
+    [ -f /sys/class/thermal/thermal_zone0/temp ] && echo "CPU Temp: $(($(cat /sys/class/thermal/thermal_zone0/temp)/1000))°C"
+    crontab -l 2>/dev/null
+    tail -n 5 ~/aurora_dashboard.log 2>/dev/null
+    echo "Procesov: $(ps -e | wc -l)"
+    echo "Súborov v ~: $(ls ~ | wc -l)"
+    echo "Modulov: $(ls ~/aurora/scripts | grep .aurora | wc -l)"
+    command -v iptables >/dev/null 2>&1 && sudo iptables -L -n | head -n 10
+    echo "=== SNAPSHOT END ==="
+  } | tee -a "$snapshot"
+
+  sleep 15
+done

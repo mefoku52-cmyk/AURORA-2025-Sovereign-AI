@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/genesis_activation.sh

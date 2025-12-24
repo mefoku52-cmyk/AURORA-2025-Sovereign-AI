@@ -1,0 +1,20 @@
+{
+  "heartbeat": 1,
+  "alerts": [
+    "latency_anomaly https://httpbin.org/get",
+    "latency_anomaly https://httpbin.org/uuid",
+    "latency_anomaly https://httpbin.org/headers",
+    "latency_anomaly https://httpbin.org/get",
+    "csv_anomaly /data/data/com.termux/files/home/sd_backup/ROZBALENE_ARCHIVY/MODULY/2023-07-05.csv",
+    "csv_anomaly /data/data/com.termux/files/home/sd_backup/ROZBALENE_ARCHIVY/MODULY/2023-04-19_1.7.3.csv",
+    "csv_anomaly /data/data/com.termux/files/home/sd_backup/ROZBALENE_ARCHIVY/MODULY/2023-04-20_master.csv",
+    "csv_anomaly /data/data/com.termux/files/home/sd_backup/ULTRON_CORE_MODULY/R4C0_NULA/skripty/modules_full_20251012_180302.csv",
+    "csv_anomaly /data/data/com.termux/files/home/sd_backup/ULTRON_CORE_MODULY/R4C0_NULA/skripty/run.csv"
+  ],
+  "repair": 0,
+  "status": 0,
+  "last_update": "2025-12-03 10:36:13",
+  "network_brain": 1,
+  "crawler": 1,
+  "analytics": 1
+}

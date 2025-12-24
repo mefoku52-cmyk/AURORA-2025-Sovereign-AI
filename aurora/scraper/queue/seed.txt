@@ -1,0 +1,3 @@
+https://example.org/
+https://httpbin.org/html
+https://httpbin.org/links/5/0

@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/scripts/aurora_brain.py

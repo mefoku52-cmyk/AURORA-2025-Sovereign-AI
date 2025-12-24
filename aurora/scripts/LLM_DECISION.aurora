@@ -1,0 +1,29 @@
+#!/bin/bash
+# 🧠 LLM DECISION MAKER V1.0
+# Simuluje rozhodovanie Agenta na základe KNOWLEDGE
+LOG_FILE="/data/data/com.termux/files/home/aurora/logs/llm_decisions.txt"
+
+# Simulácia získania KNOWLEDGE z MEGA-LIVE (toto by bolo v reálnom systéme z API)
+# Pre jednoduchosť predpokladajme, že KNOWLEDGE je aspoň 1000 KB
+if [[ $1 -lt 1000 ]]; then
+    echo "LLM DECISION: KNOWLEDGE ($1) je príliš nízke na rozhodovanie."
+    exit 0
+fi
+
+ACTION="ŽIADNA ZMENA"
+# Náhodné rozhodnutie pre simuláciu AGI
+RAND=$(( $RANDOM % 3 ))
+if [[ $RAND -eq 0 ]]; then
+    ACTION="Zmena tempa: Skracujem čas cyklu (simulácia - 5s)"
+    # V reálnom systéme by zmenil time.sleep v ULTRA-V500-MEGA-LIVE.py
+elif [[ $RAND -eq 1 ]]; then
+    ACTION="Vykonaj: aurora defense_protocol.aurora"
+    # Volanie iného skriptu
+elif [[ $RAND -eq 2 ]]; then
+    ACTION="Dynamické učenie: Pridávam novú URL do SCIENCE_URLS"
+    # Zmena URL listu v reálnom systéme
+
+echo "--- LLM ROZHODNUTIE $(date +"%H:%M:%S") ---" >> "$LOG_FILE"
+echo "AKCIA: $ACTION" >> "$LOG_FILE"
+echo "✅ LLM ROZHODNUTIE: $ACTION"
+exit 0

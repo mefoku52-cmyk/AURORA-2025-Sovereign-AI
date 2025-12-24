@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/install_v4_final.sh

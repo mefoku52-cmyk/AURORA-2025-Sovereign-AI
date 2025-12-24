@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/aurora_pulse_generator.py

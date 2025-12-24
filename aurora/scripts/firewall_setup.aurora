@@ -1,0 +1,53 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA: firewall_setup
+# Popis: Live nastavenie firewallu – pravidlá, kolektívne vedomie, AI logika
+# Log: ~/aurora/logs/firewall_setup.log
+# ============================================================
+
+LOG_DIR="${HOME}/aurora/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/firewall_setup.log"
+
+timestamp() { date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "[firewall_setup] $(timestamp) | $*" | tee -a "$LOG_FILE"; }
+
+# -------------------------------
+# Sekcia 1: Kolektívne vedomie siete
+# -------------------------------
+collective_net() {
+  ss -lntp | head -n 50 || netstat -lntp | head -n 50
+}
+
+# -------------------------------
+# Sekcia 2: Firewall pravidlá
+# -------------------------------
+firewall_rules() {
+  iptables -L -n 2>/dev/null || echo "iptables_missing"
+}
+
+# -------------------------------
+# Sekcia 3: AI rozhodovanie
+# -------------------------------
+ai_decision() {
+  local suspicious=$(ss -tuna | awk '$5 ~ /:23|:445|:3389/ {print $5}')
+  [ -n "$suspicious" ] && echo "ai_alert: suspicious_ports=$suspicious" || echo "ai_alert: clean"
+}
+
+trap 'log "signal=TERM"; exit 0' TERM INT
+
+log "START firewall_setup"
+for cycle in $(seq 1 100); do
+  log "cycle=${cycle}"
+  collective_net | while read -r l; do log "net $l"; done
+  firewall_rules | while read -r l; do log "fw $l"; done
+  ai_decision | while read -r l; do log "$l"; done
+  sleep 1
+done
+
+log "END firewall_setup"
+
+for i in $(seq 1 300); do
+  log "detail_line=${i}"
+done

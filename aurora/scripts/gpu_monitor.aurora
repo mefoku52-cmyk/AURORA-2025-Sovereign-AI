@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 43: gpu_monitor
+# Popis: Live GPU info (ak dostupné), editor záznamy
+# Log:   ~/aurora/logs/gpu_monitor.log
+# Edit:  ~/aurora/editors/gpu_monitor.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/gpu_monitor.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/gpu_monitor_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[gpu_monitor] $(ts) | $*" | tee -a "${LOG_DIR}/gpu_monitor.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"gpu":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"gpu_monitor","cycles":0,"errors":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+gpu_info(){
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader
+  else
+    echo "gpu=unknown"
+  fi
+}
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START gpu_monitor"
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  gi="$(gpu_info)"
+  log "gpu_info ${gi}"; edit_note "gpu_info ${gi}"
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END gpu_monitor"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

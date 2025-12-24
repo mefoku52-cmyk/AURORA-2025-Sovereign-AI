@@ -1,0 +1,54 @@
+#!/bin/bash
+# ============================================================
+# 🔥 AURORA SCRIPT: heartbeat
+# Popis: Heartbeat monitor – vizuálne a logické pulzovanie systému
+# Autor: Aurora Generator
+# Dátum: $(date)
+# ============================================================
+
+echo "🔥 Spúšťam modul: heartbeat"
+echo "STATUS: INIT | TIME: $(date)"
+
+# -------------------------------
+# Sekcia 1: Inicializácia
+# -------------------------------
+function init_heartbeat() {
+  echo "[INIT] Heartbeat inicializovaný."
+}
+
+# -------------------------------
+# Sekcia 2: Logovanie
+# -------------------------------
+function log_pulse() {
+  echo "[PULSE] $1 | TIME: $(date)"
+}
+
+# -------------------------------
+# Sekcia 3: Pulzovanie
+# -------------------------------
+function pulse_cycle() {
+  for i in $(seq 1 20); do
+    echo "[💓] Heartbeat cycle $i"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 4: Hlavná slučka
+# -------------------------------
+for k in $(seq 1 10); do
+  log_pulse "Heartbeat cyklus $k"
+  pulse_cycle
+done
+
+# -------------------------------
+# Sekcia 5: Extra detaily
+# -------------------------------
+for m in $(seq 1 100); do
+  echo "[DETAIL] heartbeat detail line $m"
+done
+
+# -------------------------------
+# Sekcia 6: Ukončenie
+# -------------------------------
+echo "COMPLETE: heartbeat"

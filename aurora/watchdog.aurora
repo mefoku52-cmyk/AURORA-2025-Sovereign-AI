@@ -1,0 +1,65 @@
+#!/bin/bash
+# ============================================================
+# 🔥 AURORA SCRIPT: watchdog
+# Popis: System watchdog – sleduje a chráni systém
+# Autor: Aurora Generator
+# Dátum: $(date)
+# ============================================================
+
+echo "🔥 Spúšťam modul: watchdog"
+echo "STATUS: INIT | TIME: $(date)"
+
+# -------------------------------
+# Sekcia 1: Inicializácia
+# -------------------------------
+function init_watchdog() {
+  echo "[INIT] Watchdog inicializovaný."
+}
+
+# -------------------------------
+# Sekcia 2: Logovanie
+# -------------------------------
+function log_event() {
+  echo "[EVENT] $1 | TIME: $(date)"
+}
+
+# -------------------------------
+# Sekcia 3: Kontrola procesov
+# -------------------------------
+function check_processes() {
+  for i in $(seq 1 20); do
+    echo "[PROC] Kontrola procesu $i: PID=$((RANDOM % 5000))"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 4: Kontrola siete
+# -------------------------------
+function check_network() {
+  for i in $(seq 1 20); do
+    echo "[NET] Kontrola siete $i: Packets=$((RANDOM % 10000))"
+    sleep 0.05
+  done
+}
+
+# -------------------------------
+# Sekcia 5: Hlavná slučka
+# -------------------------------
+for k in $(seq 1 10); do
+  log_event "Watchdog cyklus $k"
+  check_processes
+  check_network
+done
+
+# -------------------------------
+# Sekcia 6: Extra detaily
+# -------------------------------
+for m in $(seq 1 100); do
+  echo "[DETAIL] watchdog detail line $m"
+done
+
+# -------------------------------
+# Sekcia 7: Ukončenie
+# -------------------------------
+echo "COMPLETE: watchdog"

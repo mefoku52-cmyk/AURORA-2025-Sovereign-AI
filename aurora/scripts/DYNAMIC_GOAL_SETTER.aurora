@@ -1,0 +1,19 @@
+#!/bin/bash
+# 🎯 AURORA: DYNAMIC GOAL SETTER V1.0 (AGI Feedback)
+# Dynamické pridávanie nových cieľov (URL) do učenia.
+
+NEW_GOAL_FILE="/data/data/com.termux/files/home/aurora/logs/new_learning_goals.txt"
+TOPICS=("Consciousness_and_Artificial_Intelligence" "The_Nature_of_Time" "Ethics_of_Autonomous_Vehicles")
+RAND_TOPIC=${TOPICS[$RANDOM % ${#TOPICS[@]}]}
+NEW_URL="https://en.wikipedia.org/wiki/$RAND_TOPIC"
+
+echo "GOAL SETTER: Vyberám nový dynamický cieľ..."
+
+if [ ! -f "$NEW_GOAL_FILE" ] || [ $(wc -l < "$NEW_GOAL_FILE") -lt 1 ]; then
+    echo "$(date +%H:%M:%S) - Pridávam prvý cieľ: $NEW_URL" >> "$NEW_GOAL_FILE"
+    echo "✅ NOVÝ CIEĽ: $RAND_TOPIC (Zapísané do $NEW_GOAL_FILE)"
+else
+    # Simluje, že AI len obmieňa ciele, ak už nejaké sú.
+    echo "GOAL SETTER: Ciele existujú. Kontrola integrity."
+fi
+

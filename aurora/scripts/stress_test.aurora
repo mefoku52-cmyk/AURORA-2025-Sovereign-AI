@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 39: stress_test
+# Popis: Live záťažový test (CPU/IO/NET), bezpečné limity, editor záznamy
+# Log:   ~/aurora/logs/stress_test.log
+# Edit:  ~/aurora/editors/stress_test.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/stress_test.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/stress_test_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[stress_test] $(ts) | $*" | tee -a "${LOG_DIR}/stress_test.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"stress":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"stress_test","cycles":0,"errors":0,"runs":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+cpu_burn(){ python - <<'PY' 2>/dev/null | tail -n1
+import time,math
+t=time.time()
+x=0.0
+for i in range(1500000):
+    x+=math.sin(i%101)*math.cos(i%89)
+print("cpu_burn_ms=%d"%((time.time()-t)*1000))
+PY
+}
+io_burn(){ dd if=/dev/urandom of="$HOME/aurora/stress.tmp" bs=512K count=32 oflag=direct 2>&1 | tail -n1; rm -f "$HOME/aurora/stress.tmp"; }
+net_check(){ ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1 && echo "net=ok" || echo "net=fail"; }
+
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START stress_test"
+for cycle in $(seq 1 30); do
+  log "cycle=${cycle}"
+  cb="$(cpu_burn)"; ib="$(io_burn)"; nc="$(net_check)"
+  log "stress ${cb} io=${ib} ${nc}"
+  edit_note "stress ${cb} io=${ib} ${nc}"
+  sinc runs; sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 2
+done
+cset heartbeat 0
+log "END stress_test"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

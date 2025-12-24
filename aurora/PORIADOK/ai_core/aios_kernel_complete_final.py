@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/aios_kernel_complete_final.py

@@ -1,0 +1,19 @@
+#!/bin/bash
+# 🧠 AURORA: DECISION CORE V2.0
+# Hlavná logika a rozhodovanie.
+METRIC_LOG="/data/data/com.termux/files/home/aurora/logs/system_metrics.log"
+LAST_CPU=$(tail -n 1 "$METRIC_LOG" 2>/dev/null | awk -F 'CPU:' '{print $2}' | cut -d'%' -f1 | tr -d '[:space:]')
+THRESHOLD=80 # Kritické zaťaženie
+
+echo "DECISION CORE: Analýza záťaže CPU ($LAST_CPU%)..."
+
+if [ -z "$LAST_CPU" ] || [ "$(echo "$LAST_CPU < $THRESHOLD" | bc -l)" -eq 1 ]; then
+    DECISION="NÍZKA ZÁŤAŽ: Pokračuj v učení a analýze. Status: ZELENÝ."
+    NEXT_ACTION="Učenie"
+else
+    DECISION="VÝSOKÁ ZÁŤAŽ: Stopni učenie a vyčisti cache. Status: ČERVENÝ."
+    NEXT_ACTION="Optimalizácia"
+fi
+
+echo "ROZHODNUTIE: $DECISION"
+echo "AKCIA: $NEXT_ACTION"

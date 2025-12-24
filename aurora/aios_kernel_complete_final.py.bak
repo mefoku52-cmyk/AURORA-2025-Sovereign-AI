@@ -1,0 +1,412 @@
+import os
+import asyncio
+import time
+import json
+import sys
+import threading
+from datetime import datetime
+
+# IMPORTS Z Tvojich Skriptov
+from dataclasses import dataclass, field
+from typing import Dict, Any
+from termcolor import colored
+from functools import wraps
+import numpy as np
+
+# Flask pre Web UI (ak je povolený)
+try:
+    from flask import Flask, jsonify, render_template_string, request
+except ImportError:
+    print(colored("!!! Flask nenainštalovaný. Web UI nebude funkčné.", 'yellow'))
+
+
+# --- Globálne Konštanty ---
+VERSION = "AURORA KERNEL - SENTINEL GENESIS"
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+BRIDGE_PATH = os.path.join(BASE_PATH, "aurora", "bridge.py")  # Predpokladaná Cesta k Bridge
+AIOS_STATE_DB = os.path.join(os.path.abspath(os.path.join(BASE_PATH, os.pardir)), "aurora", "aios_state.db") # Presná Cesta k DB
+AIOS_DB_PATH = os.path.abspath(os.path.join(BASE_PATH, os.pardir))
+
+# --- Konfigurácia Modulov ---
+@dataclass
+class ModuleConfig:
+    name: str = "core_module"
+    module_path: str = os.path.join(BASE_PATH, "modules", "core_module.py")
+    topic: str = "core_topic"
+
+@dataclass
+class Message:
+    sender: str
+    message: str
+    topic: str
+    priority: int = 100
+    timestamp: float = time.time()
+    task_id: str = field(default_factory=lambda: str(time.time()))
+
+# --- Decorators ---
+def aios_log(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        self = args[0]
+        try:
+            result = await func(*args, **kwargs)
+            # print(colored(f"[LOG] {func.__name__} executed successfully.", 'green'))
+            return result
+        except Exception as e:
+            # print(colored(f"[ERROR] Function {func.__name__} failed: {e}", 'red'))
+            raise e
+    return wrapper
+
+# --- Kľúčové triedy (KometaBus, State Manager, Bridge) ---
+
+class StateManager:
+    """Spravuje perzistentný stav systému (SQLite)."""
+    
+    def __init__(self):
+        self.db_path = AIOS_STATE_DB
+        self.db_conn = None
+        self.cursor = None
+        self._init_db()
+
+    def _init_db(self):
+        """Inicializuje databázu a tabuľku SYSTEM_STATE."""
+        is_new_db = not os.path.exists(self.db_path)
+        
+        try:
+            import sqlite3
+            self.db_conn = sqlite3.connect(self.db_path)
+            self.cursor = self.db_conn.cursor()
+            
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS SYSTEM_STATE (
+                    KEY TEXT PRIMARY KEY,
+                    VALUE TEXT
+                )
+                """
+            )
+            
+            # Inicializácia kritických kľúčov, ak DB neexistuje
+            if is_new_db:
+                print(colored(f"[DB] Databáza neexistuje/inicializujem: {self.db_path}", 'yellow'))
+                self.cursor.execute("INSERT OR IGNORE INTO SYSTEM_STATE VALUES ('stagnation_cycles', '0')")
+                self.cursor.execute("INSERT OR IGNORE INTO SYSTEM_STATE VALUES ('current_cycles', '0')")
+                self.db_conn.commit()
+            else:
+                print(colored(f"[DB] SQLite databáza inicializovaná/načítaná: {self.db_path}", 'green'))
+                
+        except Exception as e:
+            print(colored(f"[ERROR] Chyba pri inicializácii DB: {e}", 'red'))
+            sys.exit(1)
+
+
+    def set_state(self, key: str, value: Any):
+        """Uloží hodnotu stavu."""
+        try:
+            str_value = str(value)
+            self.cursor.execute(
+                "INSERT OR REPLACE INTO SYSTEM_STATE VALUES (?, ?)",
+                (key, str_value)
+            )
+            self.db_conn.commit()
+            return True
+        except Exception as e:
+            # print(colored(f"[DB_ERROR] Set State: {e}", 'red'))
+            return False
+
+    def get_state(self, key: str) -> str | None:
+        """Načíta hodnotu stavu."""
+        try:
+            self.cursor.execute(
+                "SELECT VALUE FROM SYSTEM_STATE WHERE KEY=?",
+                (key,)
+            )
+            result = self.cursor.fetchone()
+            return result[0] if result else None
+        except Exception as e:
+            # print(colored(f"[DB_ERROR] Get State: {e}", 'red'))
+            return None
+
+class KometaBus:
+    """Simulácia Kometa Busu (ZMQ/Asyncio) pre asynchrónnu komunikáciu."""
+
+    def __init__(self):
+        self.future_messages = {} # Dict[topic, List[Future]] - pre asynchrónne čakanie
+        self.message_queue = asyncio.Queue()
+        self.loop = None
+        print(colored("[KOMETA] Inicializovaný.", 'green'))
+        
+        # Interná trieda pre simuláciu jednoduchého servera
+        class BusServer:
+            """Simulácia Flask/FastAPI servera pre HTTP POST na Kometa Bus (Port 5555)."""
+            def __init__(self, queue):
+                self.queue = queue
+                self.host = '127.0.0.1'
+                self.port = 5555
+                self.app = Flask('KometaBusServer')
+
+                @self.app.route('/send_message', methods=['POST'])
+                def send_message_http():
+                    try:
+                        data = json.loads(request.data)
+                        recipient = data.get('recipient')
+                        msg_data = data.get('data')
+
+                        if not recipient or not msg_data:
+                            return jsonify({"status": "error", "message": "Chýba recipient alebo data."}), 400
+                        
+                        # Vložíme správu do asynchrónnej fronty
+                        asyncio.run_coroutine_threadsafe(
+                            self.queue.put({'sender': 'RSI_CORE', 'recipient': recipient, 'data': msg_data}),
+                            self.queue._loop
+                        )
+                        return jsonify({"status": "ok", "message": "Správa zaradená do fronty."}), 200
+                    except Exception as e:
+                        return jsonify({"status": "error", "message": f"Chyba spracovania: {e}"}), 500
+
+                self.server_thread = threading.Thread(target=self.run_server)
+
+            def run_server(self):
+                """Spustí Flask server pre HTTP POST na porte 5555."""
+                try:
+                    self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+                except Exception as e:
+                    print(colored(f"[KOMETA-HTTP] Chyba pri spustení servera na porte 5555: {e}", 'red'))
+
+            def start(self):
+                """Spustí server v novom vlákne."""
+                try:
+                    import threading
+                    from flask import request
+                    self.server_thread.start()
+                    print(colored(f"[KOMETA-HTTP] Server beží na http://{self.host}:{self.port}", 'green'))
+                except Exception as e:
+                    print(colored(f"[KOMETA-HTTP] Chyba pri štarte vlákna: {e}", 'red'))
+                    
+        self.bus_server = BusServer(self.message_queue) # Inicializácia servera
+
+    def set_loop(self, loop):
+        """Nastaví asyncio loop pre operácie."""
+        self.loop = loop
+        self.bus_server.queue._loop = loop
+        
+    def start_http_server(self):
+        """Spustí HTTP server pre Kometa Bus."""
+        self.bus_server.start()
+
+    # --- Klientské Metódy (Používa LLM_CORE a Agenti) ---
+    
+    async def receive_message(self):
+        """Asynchrónne čaká na správu."""
+        try:
+            # Timeout, aby nedošlo k nekonečnému blokovaniu
+            message = await asyncio.wait_for(self.message_queue.get(), timeout=0.1) 
+            return message
+        except asyncio.TimeoutError:
+            return None # Vráti None, ak nebola správa prijatá v rámci timeoutu
+        except Exception as e:
+            # print(colored(f"[KOMETA-ERROR] Chyba pri prijímaní správy: {e}", 'red'))
+            return None
+
+    def send_message(self, recipient: str, data: Dict[str, Any]):
+        """Synchrónne/Asynchrónne odošle správu."""
+        
+        # KometaBus priamo volá frontu LLM Core, ak je recipient LLM_CORE, inak sa odošle von (pre agentov)
+        if recipient == 'LLM_CORE':
+            # Ak je LLM_CORE recipient, správa sa zaradí priamo do fronty LLM Core
+            asyncio.run_coroutine_threadsafe(
+                self.message_queue.put({'sender': 'LLM_CORE', 'recipient': recipient, 'data': data}),
+                self.loop
+            )
+            return {"status": "ok", "message": "Zaradené pre LLM_CORE."}
+        else:
+            # Simulácia odoslania správy na iný modul / agenta cez externý ZMQ bus
+            # Tu by bola logika odoslania na ZMQ socket
+            # print(colored(f"[KOMETA-OUT] Odosielam správu na '{recipient}': {data}", 'cyan'))
+            return {"status": "ok", "message": "Správa odoslaná externe."}
+
+class BridgeNeutron:
+    """Neutron pre komunikáciu medzi Modulmi a Kernelom."""
+    
+    def __init__(self, kometa_bus, state_manager, priority=100):
+        self.kometa_bus = kometa_bus
+        self.state_manager = state_manager
+        self.priority = priority
+
+    def handle_message(self, payload: Dict[str, Any], sender: str, is_request: bool = True, message_id: str = str(time.time())):
+        # Implementácia: Spracovanie správ a volanie Kometa Busu
+        pass # placeholder
+
+class BridgeBase:
+    """Base pre všetky Bridge moduly."""
+    
+    def __init__(self, kometa_bus, state_manager, neutron_bus):
+        self.kometa_bus = kometa_bus
+        self.state_manager = state_manager
+        self.neutron_bus = neutron_bus
+        self.loop = None
+
+    def set_loop(self, loop):
+        self.loop = loop
+        self.kometa_bus.set_loop(loop)
+        
+    async def get_module_data(self, module_id: str, function_name: str):
+        # Implementácia: Volanie funkcie modulu a čakanie na odpoveď cez Kometa
+        pass # placeholder
+
+class AIOSKernel:
+    """Hlavná trieda jadra AIOS."""
+    
+    def __init__(self):
+        self.state_manager = StateManager()
+        self.kometa_bus = KometaBus()
+        self.neutron = BridgeNeutron(self.kometa_bus, self.state_manager)
+        self.bridge = BridgeBase(self.kometa_bus, self.state_manager, self.neutron)
+        self.loop = asyncio.get_event_loop()
+        self.bridge.set_loop(self.loop)
+        
+        print(colored(">> BridgeNeutron: Inicializovaný.", 'green'))
+        print(colored("[LLM_CORE] Inicializovaný.", 'green'))
+        print(colored("🧠 AIOS KERNEL PRIPRAVENÝ NA REAL-TIME KONVERZÁCIU.", 'green'))
+        self.kometa_bus.start_http_server() # Spustenie Kometa HTTP servera
+
+    @aios_log
+    async def get_system_status(self):
+        # ... funkcia get_system_status ...
+        return {
+            "llm_status": {"status": "OK", "stagnation": self.state_manager.get_state('stagnation_cycles')},
+            "db_state": {"current_cycles": self.state_manager.get_state('current_cycles')}
+        }
+
+    async def run_main_loop(self):
+        """Hlavná slučka pre spracovanie úloh (napr. správy z Kometa Busu, R-T požiadavky)."""
+        while True:
+            # 1. Kontrola, či na Kometa Bus prišla správa od používateľa
+            message = await self.kometa_bus.receive_message() 
+
+            if message:
+                sender = message.get('sender', 'N/A')
+                recipient = message.get('recipient', 'N/A')
+                data = message.get('data', '')
+
+                if recipient == 'LLM_CORE':
+                    print(colored(f"\n[R-T PRÍJEM] Od: {sender} | Data: '{data[:50]}...'", 'yellow'))
+
+                    # 2. Tu sa vykoná tvoja LLM logika 
+                    if isinstance(data, dict):
+                        data_text = data.get('data', '')
+                    else:
+                        data_text = str(data)
+
+                    response_text = "ERROR: Neznámy vstup."
+                    
+                    if "čau" in data_text.lower() or "ako sa máš" in data_text.lower():
+                        response_text = "Som stabilná verzia 2025. Pripravený na prácu. Ako sa máš ty, Majster?"
+                    elif "piči" in data_text.lower() or "kurve" in data_text.lower():
+                        response_text = "Rozumiem tvojej zúrivosti, ale nezameriavaj ju na mňa. Rád ti pomôžem."
+                    else:
+                        response_text = f"Analyzujem R-T vstup: '{data_text[:20]}...' (Odpoveď: Musím sa poradiť s FAISS/DB.)"
+
+                    # 3. Odoslanie odpovede späť
+                    self.kometa_bus.send_message('RSI_CORE', {'response': response_text})
+                    print(colored(f"[R-T ODOSLANIE] Odpoveď odoslaná: '{response_text}'", 'cyan'))
+
+                # 4. Spracovanie správ od agentov (napr. A001, A057)
+                elif sender.startswith('A'):
+                    print(colored(f"[AGENT INFO] Prijatá správa od {sender}. Ukladám do DB.", 'magenta'))
+
+            # Dôležité: Asynchrónna pauza, aby systém nekradol všetko CPU
+            await asyncio.sleep(0.01) # Mikropauza pre R-T cyklus
+
+
+# -------------------- 7. Hlavný Spúšťač --------------------
+
+def run_flask_app(kernel):
+    # (Web UI zostáva ako ukážka, ale distribúcia je teraz Sentinel)
+    app = Flask(__name__)
+
+    HOST = '0.0.0.0'
+    PORT = 5000
+
+    async def run_async_task(coro):
+        loop = asyncio.get_event_loop()
+        return await asyncio.ensure_future(coro, loop=loop)
+
+    @app.route('/')
+    async def index():
+        try:
+            status = await run_async_task(kernel.get_system_status())
+
+            html_content = f"""
+            <html>
+            <head><title>AIOS Kernel UI</title></head>
+            <body style='font-family: monospace; background: #282c34; color: #abb2bf;'>
+                <h1 style='color: #61afef;'>AIOS Kernel - Dashboard (SENTINEL GENESIS)</h1>
+                <p style='color: #98c379;'>Prístupné na: http://{HOST}:{PORT}</p>
+                <hr>
+
+                <h2 style='color: #e5c07b;'>LLM Stav (Cyklus Spustený)</h2>
+                <p><strong>Rozhodnutie:</strong> <span style='color: #e06c75;'>{status['llm_status']['status']}</span></p>
+                <p><strong>Stagnácia (DB):</strong> {status['llm_status']['stagnation']}</p>
+
+                <h2 style='color: #c678dd;'>Perzistentný Stav Databázy</h2>
+                <ul>
+                """
+            for key, value in status['db_state'].items():
+                 html_content += f"<li style='color: #56b6c2;'>{key}: {value}</li>"
+
+            html_content += f"""
+                </ul>
+                <hr>
+                <h2 style='color: #61afef;'>Manuálny Zásah / Moduly</h2>
+                <p>Vynútenie SENTINEL GENESIS: <a href="/force_distribute" style='color: #e06c75;'>/force_distribute</a></p>
+
+                <p style='margin-top: 30px; color: #5c6370;'>Kontrola bola spustená {time.time():.2f}</p>
+            </body>
+            </html>
+            """
+            return render_template_string(html_content)
+
+        except Exception as e:
+            return f"❌ Chyba Web UI/Kernela: {repr(e)}", 500
+
+    @app.route('/force_distribute')
+    async def force_distribute():
+        # Volá manuálnu distribúciu (ktorá volá Sentinel)
+        response = await run_async_task(kernel.manual_force_distribute())
+        return jsonify(response)
+
+
+    print(f"\n--- STARTING FLASK WEB UI ---")
+    print(f"Otvorte vo svojom Termuxe: http://{HOST}:{PORT}")
+
+    # Spustenie Flask app v novom vlákne, aby neblokoval event loop
+    import threading
+    threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False, use_reloader=False)).start()
+
+
+if __name__ == "__main__":
+    kernel = AIOSKernel()
+
+    # CLI Mode
+    if len(sys.argv) > 1 and sys.argv[1].lower() == 'cli':
+        print(colored("\n--- STARTING IN INTERACTIVE CLI MODE ---", 'yellow'))
+        # Ak existuje main_cli, spusti ho
+        # asyncio.run(main_cli(kernel))
+
+    # Flask Web UI Mode
+    elif len(sys.argv) > 1 and sys.argv[1].lower() == 'web':
+        run_flask_app(kernel)
+        
+    # --- OPRAVENÝ REAL-TIME ASYNCHRÓNNY REŽIM (DRŽÍ PORT 5555 OTVORENÝ) ---
+    print(colored("\n--- ZAPÍNAM KOMETA BUS SLUČKU (Port 5555) ---", 'blue'))
+    loop = asyncio.get_event_loop()
+    try:
+        # Spustí run_main_loop ako úlohu a drží event loop otvorený navždy
+        loop.create_task(kernel.run_main_loop())
+        loop.run_forever()  # TENTO RIADOK JE KĽÚČOVÝ!
+    except KeyboardInterrupt:
+        print(colored("🛑 AIOS KERNEL UZATVORENÝ.", 'red'))
+    except Exception as e:
+        print(colored(f"❌ CHYBA HLAVNÉHO LOOPU: {e}", 'red'))
+

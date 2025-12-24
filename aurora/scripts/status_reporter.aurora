@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 50: status_reporter
+# Popis: Live report celkového stavu (CPU/RAM/NET/DISK), editor záznamy
+# Log:   ~/aurora/logs/status_reporter.log
+# Edit:  ~/aurora/editors/status_reporter.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/status_reporter.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/status_reporter_self.json"
+mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[status_reporter] $(ts) | $*" | tee -a "${LOG_DIR}/status_reporter.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"status":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/div/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"status_reporter","cycles":0,"errors":0,"reports":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/div/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/div/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+cpu_usage(){ awk '/^cpu /{u=$2+$3+$4+$6+$7+$8; i=$5; print u,i}' /proc/stat; }
+mem_stats(){ awk '/^MemTotal:/ {mt=$2} /^MemAvailable:/{ma=$2} END{printf "mem_total_kb=%d mem_avail_kb=%d mem_used_kb=%d",mt,ma,mt-ma}' /proc/meminfo; }
+disk_stats(){ df -h | awk 'NR==1 || /^\/dev\// {print}'; }
+net_status(){ ping -c 1 -W 1 8.8.8.8 >/div/null 2>&1 && echo "net=online" || echo "net=offline"; }
+
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START status_reporter"
+for cycle in $(seq 1 120); do
+  log "cycle=${cycle}"
+  read -r u i <<< "$(cpu_usage)"; sleep 0.2; read -r u2 i2 <<< "$(cpu_usage)"
+  tot=$((u2-u+i2-i)); idle=$((i2-i)); cpu=$((100*(tot-idle)/(tot==0?1:tot)))
+  mem="$(mem_stats)"
+  net="$(net_status)"
+  edit_note "cpu=${cpu}% ${mem} ${net}"
+  log "cpu=${cpu}% ${mem} ${net}"
+  while read -r l; do log "disk ${l}"; done < <(disk_stats)
+  sinc reports; sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/div/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END status_reporter"
+for i in $(seq 1 160); do edit_note "detail_line=${i}"; done

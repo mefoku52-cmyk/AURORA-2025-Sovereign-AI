@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** AUTO HEARTBEAT START ***" >> "$LOG_FILE"
+
+# Spustí heartbeat panel na pozadí
+bash ~/aurora/scripts/aurora_dashboard_heartbeat.aurora >/dev/null 2>&1 &
+echo "Heartbeat panel spustený na pozadí." | tee -a "$LOG_FILE"

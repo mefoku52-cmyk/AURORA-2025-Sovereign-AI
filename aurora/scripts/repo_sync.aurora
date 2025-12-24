@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+# ============================================================
+# AURORA 36: repo_sync
+# Popis: Live synchronizácia repozitárov (fetch/pull/status), vlastný editor
+# Log:   ~/aurora/logs/repo_sync.log
+# Edit:  ~/aurora/editors/repo_sync.edit
+# ============================================================
+LOG_DIR="${HOME}/aurora/logs"; EDIT="${HOME}/aurora/editors/repo_sync.edit"
+COLLECTIVE="${HOME}/aurora/collective/state.json"; SELF="${HOME}/aurora/collective/repo_sync_self.json"
+REPO_ROOT="${HOME}/aurora/repos"; mkdir -p "$LOG_DIR" "$(dirname "$COLLECTIVE")" "$REPO_ROOT"; touch "$EDIT"
+ts(){ date +"%Y-%m-%d %H:%M:%S"; }
+log(){ echo "[repo_sync] $(ts) | $*" | tee -a "${LOG_DIR}/repo_sync.log"; }
+cset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$COLLECTIVE" ]||printf '{"heartbeat":0,"alerts":[],"repair":0,"repos":0,"last_update":"%s"}\n' "$(ts)" > "$COLLECTIVE"; jq ".$k=$v|.last_update=\"$(ts)\"" "$COLLECTIVE" > "$t" 2>/dev/null || cp "$COLLECTIVE" "$t"; mv "$t" "$COLLECTIVE"; }
+sset(){ local k="$1" v="$2" t="$(mktemp)"; [ -f "$SELF" ]||printf '{"name":"repo_sync","cycles":0,"errors":0,"pulls":0,"observations":0,"last":"%s"}\n' "$(ts)" > "$SELF"; jq ".$k=$v|.last=\"$(ts)\"" "$SELF" > "$t" 2>/dev/null || cp "$SELF" "$t"; mv "$t" "$SELF"; }
+sinc(){ local k="$1" cur; cur="$(jq -r ".${k}" "$SELF" 2>/dev/null || echo 0)"; sset "$k" $((cur+1)); }
+edit_note(){ printf "[%s] %s\n" "$(ts)" "$1" >> "$EDIT"; }
+
+sync_one(){ local d="$1"; [ -d "$d/.git" ] || { log "skip_non_git dir=${d}"; return; }
+  (cd "$d" && git fetch --all --quiet && git pull --quiet && log "sync_ok dir=${d}") || log "sync_fail dir=${d}"
+  edit_note "sync ${d}"; sinc pulls; }
+
+trap 'log "signal=TERM"; cset heartbeat 0; exit 0' TERM INT
+cset heartbeat 1; sset cycles 0
+log "START repo_sync"
+for cycle in $(seq 1 90); do
+  log "cycle=${cycle}"
+  find "$REPO_ROOT" -maxdepth 1 -mindepth 1 -type d | while read -r d; do sync_one "$d"; done
+  edit_note "cycle_done ${cycle}"
+  sinc observations
+  cur="$(jq -r '.cycles' "$SELF" 2>/dev/null || echo 0)"; sset cycles $((cur+1))
+  sleep 1
+done
+cset heartbeat 0
+log "END repo_sync"
+for i in $(seq 1 140); do edit_note "detail_line=${i}"; done

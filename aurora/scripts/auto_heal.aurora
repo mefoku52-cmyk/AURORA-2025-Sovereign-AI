@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** AUTO HEAL START ***" >> "$LOG_FILE"
+
+while true; do
+  suspicious=$(ps -e --no-headers | grep -E "nc|netcat|nmap|hydra|john")
+  if [ -n "$suspicious" ]; then
+    echo -e "\033[1;37;41m!!! HEALING CYCLE ACTIVATED !!!\033[0m" | tee -a "$LOG_FILE"
+
+    # RAM regenerácia – uvoľnenie cache
+    sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
+    echo "[AUTO HEAL] RAM cache vyčistená." | tee -a "$LOG_FILE"
+
+    # Reštart sieťových modulov
+    if command -v ip link >/dev/null 2>&1; then
+      sudo ip link set wlan0 down
+      sudo ip link set wlan0 up
+      echo "[AUTO HEAL] Sieťové moduly resetované." | tee -a "$LOG_FILE"
+    fi
+
+    # Reštart heartbeat panelu
+    pkill -f aurora_dashboard_heartbeat.aurora
+    bash ~/aurora/scripts/aurora_dashboard_heartbeat.aurora >/dev/null 2>&1 &
+    echo "[AUTO HEAL] Heartbeat panel obnovený." | tee -a "$LOG_FILE"
+
+    # Logovanie
+    echo "=== HEALING CYCLE COMPLETED ===" | tee -a "$LOG_FILE"
+  fi
+  sleep 30
+done

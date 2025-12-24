@@ -1,0 +1,42 @@
+#!/bin/bash
+# 🌌 AURORA: CLUSTER INITIATOR V1.1 (FIXED - Iba interné moduly)
+# Spustí relevantných Agentov/Modulov len z kľúčových interných adresárov.
+
+echo "CLUSTER INITIATOR: Spúšťam internú inicializáciu agentov..."
+
+# OBMEDZENÉ ADRESÁRE (Odstránené Download/ZALOHA kvôli chybám s právami)
+SEARCH_PATHS="/data/data/com.termux/files/home/aurora/scripts /data/data/com.termux/files/home/.config/ultra-os"
+
+# Zoznam kľúčových typov súborov (Agentov/Modulov)
+FILE_TYPES="sh py cpp"
+AGENT_COUNT=0
+
+call_monolith() {
+    local script_name=$1
+    local script_path=$2
+    COMMAND="exec_script:$script_name $script_path"
+    PYTHON_SCRIPT="/data/data/com.termux/files/home/ai_ultron_MONOLITH.py"
+
+    if [ -f "$PYTHON_SCRIPT" ]; then
+        # Spúšťame Python priamo, aby poslal príkaz na localhost HUB
+        python3 -c "from ai_ultron_MONOLITH import client_send; print(client_send('$COMMAND'))" 2>/dev/null &
+        AGENT_COUNT=$((AGENT_COUNT + 1))
+        echo "   [AGENT $AGENT_COUNT] -> Spustený: $script_name"
+    fi
+}
+
+# Prehľadanie kľúčových ciest
+for type in $FILE_TYPES; do
+    echo "Hľadám všetky *.$type moduly..."
+    find $SEARCH_PATHS -type f -name "*.$type" -maxdepth 4 2>/dev/null | while read script_path; do
+        script_name=$(basename "$script_path")
+        
+        # Filtrujeme kľúčové jadrá (aby sme ich nespustili znova)
+        if [[ "$script_name" != "ULTRA-V500-MEGA-LIVE.py" ]] && [[ "$script_name" != "ai_ultron_MONOLITH.py" ]]; then
+            call_monolith "$script_name" "$script_path"
+        fi
+        
+    done
+done
+
+echo "✅ KLASTER Spustený: $AGENT_COUNT modulov bolo odoslaných na spracovanie cez ULTRON HUB (localhost)."

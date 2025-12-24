@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+LOG_FILE="$HOME/aurora_dashboard.log"
+echo "*** SYSTEM SLEEP START ***" >> "$LOG_FILE"
+sleep 3
+echo "Systém prebudený" | tee -a "$LOG_FILE"

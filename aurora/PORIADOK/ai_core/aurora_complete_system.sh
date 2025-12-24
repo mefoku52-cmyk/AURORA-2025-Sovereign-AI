@@ -1,0 +1,1 @@
+/data/data/com.termux/files/home/aurora/aurora_complete_system.sh
