@@ -1,0 +1,44 @@
+AURORA 2025 – Release v1.0
+
+🚀 Prvé verejné vydanie projektu AURORA-2025-Sovereign-AI
+
+Toto je prvé oficiálne vydanie projektu AURORA – suverénneho AI systému navrhnutého tak, aby bežal lokálne, offline a plne pod kontrolou používateľa. Projekt vznikol na obyčajnom Androide, v Termuxe, bez cloudu a bez závislosti na veľkých firmách.
+
+🧠 Čo je AURORA?
+AURORA je digitálny organizmus navrhnutý tak, aby fungoval autonómne, bezpečne a suverénne. Beží na bežnom zariadení, chráni tvoje dáta a nevyžaduje internet.
+
+📦 Obsah Release v1.0
+- Verejná architektúra projektu
+- README s osobným príbehom a technickou dokumentáciou
+- Bezpečnostné zásady
+- Licenčné podmienky
+- Skript fix_and_secure_aurora.sh
+- Priečinok aurora/ (verejná časť systému)
+
+🛠️ Inštalácia (Termux)
+pkg update && pkg upgrade
+pkg install git
+git clone https://github.com/mefoku52-cmyk/AURORA-2025-Sovereign-AI.git
+cd AURORA-2025-Sovereign-AI
+bash fix_and_secure_aurora.sh
+
+✨ Novinky v tomto release
+- Prvé verejné vydanie
+- Prečistenie repozitára
+- Odstránenie veľkých súborov pre bezpečnosť
+- Pridaná podpora cez BuyMeACoffee
+- Prepracované README
+- Oddelenie súkromného jadra od verejnej vrstvy
+- Stabilizácia skriptov
+
+🗺️ Roadmap
+- Vizuálny banner pre README
+- Diagnostické nástroje
+- Watchdog procesy
+- API pre moduly
+- Prvé demo
+- Release v1.1 a v2.0
+
+☕ Podpora projektu
+https://buymeacoffee.com/RadoslavCornanic
+
